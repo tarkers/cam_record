@@ -1,0 +1,15 @@
+#find . -size +100M | cat >> .gitignore
+.vscode
+__pycache__
+Data
+camera_0
+camera_1
+old_Data
+libs/detector/traced_model.pt
+ignore.sh
+libs/detector/yolo/data/yolov3-spp.weights
+libs/detector/yolo/data/yolov3-spp.weights
+libs/detector/yolov7/data/yolov7x.pt
+traced_model.pt
+libs/pose2D/models/halpe26_fast_res50_256x192.pth
+libs/Pose3D/lib/model/FT_MB_lite_MB_ft_h36m_global_lite.bin

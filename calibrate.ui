@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>874</width>
+    <height>823</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QGroupBox" name="groupBox">
+    <property name="geometry">
+     <rect>
+      <x>200</x>
+      <y>30</y>
+      <width>651</width>
+      <height>281</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>10</pointsize>
+     </font>
+    </property>
+    <property name="title">
+     <string>Camera Parameter</string>
+    </property>
+    <widget class="QWidget" name="verticalLayoutWidget">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>631</width>
+       <height>251</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetMaximumSize</enum>
+      </property>
+      <property name="topMargin">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Camera Matrix:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="mtx_label">
+        <property name="font">
+         <font>
+          <family>Arial</family>
+         </font>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Dist Coeffs:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="dist_label">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="save_btn">
+        <property name="text">
+         <string>Save Camera Parameter</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_2">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>310</y>
+      <width>841</width>
+      <height>461</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>10</pointsize>
+      <weight>50</weight>
+      <bold>false</bold>
+     </font>
+    </property>
+    <property name="title">
+     <string>Test ImageTo See Result</string>
+    </property>
+    <widget class="QWidget" name="horizontalLayoutWidget_3">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>20</y>
+       <width>811</width>
+       <height>431</height>
+      </rect>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetNoConstraint</enum>
+      </property>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <property name="sizeConstraint">
+         <enum>QLayout::SetNoConstraint</enum>
+        </property>
+        <property name="topMargin">
+         <number>15</number>
+        </property>
+        <item>
+         <widget class="QPushButton" name="img_btn">
+          <property name="maximumSize">
+           <size>
+            <width>176</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>load Image</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="img_label">
+          <property name="maximumSize">
+           <size>
+            <width>160</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>image:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="mtx_btn">
+          <property name="maximumSize">
+           <size>
+            <width>160</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Load Camera matrix</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="mtx_file_label">
+          <property name="maximumSize">
+           <size>
+            <width>160</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>mtx:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="coef_btn">
+          <property name="maximumSize">
+           <size>
+            <width>160</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Load distort coefficient</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="coe_file_label">
+          <property name="maximumSize">
+           <size>
+            <width>160</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>coe:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="result_btn">
+          <property name="maximumSize">
+           <size>
+            <width>160</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>See Result</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Preferred</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QGraphicsView" name="graphicsView">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_3">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>181</width>
+      <height>261</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>Calibration</string>
+    </property>
+    <widget class="QLabel" name="label_3">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>30</y>
+       <width>141</width>
+       <height>15</height>
+      </rect>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>160</width>
+       <height>15</height>
+      </size>
+     </property>
+     <property name="font">
+      <font>
+       <family>Arial</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Camera Name:</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="load_folder">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>100</y>
+       <width>125</width>
+       <height>25</height>
+      </rect>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>160</width>
+       <height>25</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Load ChessBoard Folder</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="camera_name">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>50</y>
+       <width>125</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>160</width>
+       <height>16777215</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="calibration_btn">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>170</y>
+       <width>125</width>
+       <height>25</height>
+      </rect>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>160</width>
+       <height>25</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Start Calibration</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="folder_label">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>130</y>
+       <width>138</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>160</width>
+       <height>20</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>name:</string>
+     </property>
+    </widget>
+   </widget>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

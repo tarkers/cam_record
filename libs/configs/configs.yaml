@@ -1,0 +1,195 @@
+DIR_VIDEO: 'Data'
+
+
+
+VICON:
+  Left: 
+    Color:  !!python/tuple [0,0,255]
+    Name: "Vicon Left Angle"
+  Right: 
+    Color:  !!python/tuple [0,255,0]
+    Name: "Vicon Right  Angle"
+
+Pose3D:
+  Left: 
+    Color: !!python/tuple [255,0,0]
+    Name: "3D Left Angle"
+  Right: 
+    Color: !!python/tuple [255,255,0]
+    Name: "3D Right Angle"
+
+Pose2D:
+  Left: 
+    Color: !!python/tuple [15 ,185 ,255]
+    Name: "2D Left Angle"
+  Right: 
+    Color: !!python/tuple [34 ,139 ,34]
+    Name: "3D Right Angle"
+
+
+mode: "webcam"
+device: "0"
+
+Pose3D:
+  # General  
+  train_2d: False
+  no_eval: False
+  finetune: True
+  partial_train: null
+
+  # Traning 
+  epochs: 60
+  checkpoint_frequency: 30
+  batch_size: 32 
+  dropout: 0.0
+  learning_rate: 0.0005
+  weight_decay: 0.01
+  lr_decay: 0.99
+
+  # Model
+  maxlen: 243
+  dim_feat: 256
+  mlp_ratio: 4
+  depth: 5
+  dim_rep: 512
+  num_heads: 8
+  att_fuse: True
+
+  # Data
+  data_root: data/motion3d/MB3D_f243s81/
+  subset_list: [H36M-SH]
+  dt_file: h36m_sh_conf_cam_source_final.pkl
+  clip_len: 243
+  data_stride: 81
+  rootrel: False
+  sample_stride: 1
+  num_joints: 17
+  no_conf: False
+  gt_2d: False
+
+  # Loss
+  lambda_3d_velocity: 20.0
+  lambda_scale: 0.5
+  lambda_lv: 0.0
+  lambda_lg: 0.0
+  lambda_a: 0.0
+  lambda_av: 0.0
+
+  # Augmentation
+  synthetic: False
+  flip: True
+  mask_ratio: 0.
+  mask_T_ratio: 0.
+  noise: False
+  ##args
+  evaluate: "libs/Pose3D/lib/model/FT_MB_lite_MB_ft_h36m_global_lite.bin"
+  clip_len: 243
+  focus: 
+  
+Pose2D:
+  checkpoint: "libs/pose2D/models/halpe26_fast_res50_256x192.pth"
+  posebatch: 64
+  sp:  False
+  flip: False
+  DATASET:
+    TRAIN:
+      TYPE: 'Halpe_26'
+      ROOT: './data/halpe/'
+      IMG_PREFIX: 'images/train2015'
+      ANN: 'annotations/halpe_train_v1.json'
+      AUG:
+        FLIP: true
+        ROT_FACTOR: 40
+        SCALE_FACTOR: 0.3
+        NUM_JOINTS_HALF_BODY: 11
+        PROB_HALF_BODY: -1
+    VAL:
+      TYPE: 'Halpe_26'
+      ROOT: './data/halpe/'
+      IMG_PREFIX: 'images/val2017'
+      ANN: 'annotations/halpe_val_v1.json'
+    TEST:
+      TYPE: 'Halpe_26_det'
+      ROOT: './data/halpe/'
+      IMG_PREFIX: 'images/val2017'
+      DET_FILE: './exp/json/test_det_yolo.json'
+      ANN: 'annotations/halpe_val_v1.json'
+  DATA_PRESET:
+    TYPE: 'simple'
+    SIGMA: 2
+    NUM_JOINTS: 26
+    IMAGE_SIZE:
+    - 256
+    - 192
+    HEATMAP_SIZE:
+    - 64
+    - 48
+  MODEL:
+    TYPE: 'FastPose'
+    PRETRAINED: ''
+    TRY_LOAD: ''
+    NUM_DECONV_FILTERS:
+    - 256
+    - 256
+    - 256
+    NUM_LAYERS: 50
+  LOSS:
+    TYPE: 'MSELoss'
+
+  TRAIN:
+    WORLD_SIZE: 4
+    BATCH_SIZE: 48
+    BEGIN_EPOCH: 0
+    END_EPOCH: 200
+    OPTIMIZER: 'adam'
+    LR: 0.001
+    LR_FACTOR: 0.1
+    LR_STEP:
+    - 50
+    - 70
+    DPG_MILESTONE: 90
+    DPG_STEP:
+    - 110
+    - 130
+
+
+  
+
+
+Detector:
+  enable_tracking: False
+  detector: "yolov7"
+  detbatch: 5
+  detect_classes: [0]
+  INP_DIM: 640
+  NMS_THRES:  0.3
+  CONFIDENCE:  0.75
+  NUM_CLASSES:   80
+  CONFIG: 'detector/yolo/cfg/yolov3-spp.cfg'
+  WEIGHTS: 'detector/yolo/data/yolov3-spp.weights'
+  weights: './libs/detector/yolov7/data/yolov7.pt'
+  augment: False
+  exist_ok: False
+  trace: True
+  # view_img: False
+  # save_txt: False
+  # save_conf: False
+  # nosave: False
+  # agnostic_nms: False
+  # conf_thres: 0.25
+  # iou_thres: 0.45
+  # update: False
+  
+  DATA_PRESET:
+    TYPE: 'simple'
+    SIGMA: 2
+    NUM_JOINTS: 26
+    IMAGE_SIZE:
+    - 256
+    - 192
+    HEATMAP_SIZE:
+    - 64
+    - 48
+
+  sp: True
+
