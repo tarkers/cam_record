@@ -169,6 +169,149 @@ def plot_boxes(ori_image,boxes,color=None, labels=None ,line_thickness=3):
 
 
 
+
+RED = (0, 0, 255)
+GREEN = (0, 255, 0)
+BLUE = (255, 0, 0)
+CYAN = (255, 255, 0)
+YELLOW = (0, 255, 255)
+ORANGE = (0, 165, 255)
+PURPLE = (255, 0, 255)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+
+DEFAULT_FONT = cv2.FONT_HERSHEY_SIMPLEX
+
+def plot_2d_skeleton(frame, im_res, format='coco'):
+    '''
+    from alphapose database import
+    frame: frame image
+    im_res: im_res of predictions
+    format: coco or mpii
+
+    return rendered image
+    '''
+    kp_num = 26
+    
+    
+    if len(im_res['result']) > 0:
+        kp_num = len(im_res['result'][0]['keypoints'])
+        vis_thres = [0.4] * kp_num
+    if kp_num == 17:
+        if format == 'coco':
+            l_pair = [
+                (0, 1), (0, 2), (1, 3), (2, 4),  # Head
+                (5, 6), (5, 7), (7, 9), (6, 8), (8, 10),
+                (17, 11), (17, 12),  # Body
+                (11, 13), (12, 14), (13, 15), (14, 16)
+            ]
+            p_color = [(0, 255, 255), (0, 191, 255), (0, 255, 102), (0, 77, 255), (0, 255, 0),  # Nose, LEye, REye, LEar, REar
+                       (77, 255, 255), (77, 255, 204), (77, 204, 255), (191, 255, 77), (77, 191, 255), (191, 255, 77),  # LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist
+                       (204, 77, 255), (77, 255, 204), (191, 77, 255), (77, 255, 191), (127, 77, 255), (77, 255, 127), (0, 255, 255)]  # LHip, RHip, LKnee, Rknee, LAnkle, RAnkle, Neck
+            line_color = [(0, 215, 255), (0, 255, 204), (0, 134, 255), (0, 255, 50),
+                          (77, 255, 222), (77, 196, 255), (77, 135, 255), (191, 255, 77), (77, 255, 77),
+                          (77, 222, 255), (255, 156, 127),
+                          (0, 127, 255), (255, 127, 77), (0, 77, 255), (255, 77, 36)]
+        elif format == 'mpii':
+            l_pair = [
+                (8, 9), (11, 12), (11, 10), (2, 1), (1, 0),
+                (13, 14), (14, 15), (3, 4), (4, 5),
+                (8, 7), (7, 6), (6, 2), (6, 3), (8, 12), (8, 13)
+            ]
+            p_color = [PURPLE, BLUE, BLUE, RED, RED, BLUE, BLUE, RED, RED, PURPLE, PURPLE, PURPLE, RED, RED, BLUE, BLUE]
+        else:
+            raise NotImplementedError
+    elif kp_num == 26:
+        l_pair = [
+            (0, 1), (0, 2), (1, 3), (2, 4),  # Head
+            (5, 18), (6, 18), (5, 7), (7, 9), (6, 8), (8, 10),# Body
+            (17, 18), (18, 19), (19, 11), (19, 12),
+            (11, 13), (12, 14), (13, 15), (14, 16),
+            (20, 24), (21, 25), (23, 25), (22, 24), (15, 24), (16, 25),# Foot
+        ]
+        p_color = [(0, 255, 255), (0, 191, 255), (0, 255, 102), (0, 77, 255), (0, 255, 0),  # Nose, LEye, REye, LEar, REar
+                   (77, 255, 255), (77, 255, 204), (77, 204, 255), (191, 255, 77), (77, 191, 255), (191, 255, 77),  # LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist
+                   (204, 77, 255), (77, 255, 204), (191, 77, 255), (77, 255, 191), (127, 77, 255), (77, 255, 127),  # LHip, RHip, LKnee, Rknee, LAnkle, RAnkle, Neck
+                   (77, 255, 255), (0, 255, 255), (77, 204, 255),  # head, neck, shoulder
+                   (0, 255, 255), (0, 191, 255), (0, 255, 102), (0, 77, 255), (0, 255, 0), (77, 255, 255)] # foot
+    
+        line_color = [(0, 215, 255), (0, 255, 204), (0, 134, 255), (0, 255, 50),
+                      (0, 255, 102), (77, 255, 222), (77, 196, 255), (77, 135, 255), (191, 255, 77), (77, 255, 77),
+                      (77, 191, 255), (204, 77, 255), (77, 222, 255), (255, 156, 127),
+                      (0, 127, 255), (255, 127, 77), (0, 77, 255), (255, 77, 36), 
+                      (0, 77, 255), (0, 77, 255), (0, 77, 255), (0, 77, 255), (255, 156, 127), (255, 156, 127)]
+    else:
+        raise NotImplementedError
+    img = frame.copy()
+    height, width = img.shape[:2]
+    for human in im_res['result']:
+        part_line = {}
+        kp_preds = human['keypoints']
+        kp_scores = human['kp_score']
+        if kp_num == 17:
+            pass
+            # kp_preds = torch.cat((kp_preds, torch.unsqueeze((kp_preds[5, :] + kp_preds[6, :]) / 2, 0)))
+            # kp_scores = torch.cat((kp_scores, torch.unsqueeze((kp_scores[5, :] + kp_scores[6, :]) / 2, 0)))
+            # vis_thres.append(vis_thres[-1])
+        # if opt.pose_track or opt.tracking:
+        #     while isinstance(human['idx'], list):
+        #         human['idx'].sort()
+        #         human['idx'] = human['idx'][0]
+        #     color = get_color_fast(int(abs(human['idx'])))
+        else:
+            color = BLUE
+
+        # Draw bboxes
+        showbox=True
+        if showbox:
+            if 'box' in human.keys():
+                bbox = human['box']
+                bbox = [bbox[0], bbox[0]+bbox[2], bbox[1], bbox[1]+bbox[3]]#xmin,xmax,ymin,ymax
+            # else:
+            #     from trackers.PoseFlow.poseflow_infer import get_box
+            #     keypoints = []
+            #     for n in range(kp_scores.shape[0]):
+            #         keypoints.append(float(kp_preds[n, 0]))
+            #         keypoints.append(float(kp_preds[n, 1]))
+            #         keypoints.append(float(kp_scores[n]))
+            #     bbox = get_box(keypoints, height, width)
+            
+            cv2.rectangle(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[3])), color, 2)
+            # if opt.tracking:
+            #     cv2.putText(img, str(human['idx']), (int(bbox[0]), int((bbox[2] + 26))), DEFAULT_FONT, 1, BLACK, 2)
+        # Draw keypoints
+        for n in range(kp_scores.shape[0]):
+            if kp_scores[n] <= vis_thres[n]:
+                continue
+            cor_x, cor_y = int(kp_preds[n, 0]), int(kp_preds[n, 1])
+            part_line[n] = (cor_x, cor_y)
+            if n < len(p_color):
+                # if opt.tracking:
+                #     cv2.circle(img, (cor_x, cor_y), 3, color, -1)
+                # else:
+                #     cv2.circle(img, (cor_x, cor_y), 3, p_color[n], -1)
+                cv2.circle(img, (cor_x, cor_y), 3, p_color[n], -1)
+            else:
+                cv2.circle(img, (cor_x, cor_y), 1, (255,255,255), 2)
+        # Draw limbs
+        for i, (start_p, end_p) in enumerate(l_pair):
+            if start_p in part_line and end_p in part_line:
+                start_xy = part_line[start_p]
+                end_xy = part_line[end_p]
+                if i < len(line_color):
+                    # if opt.tracking:
+                    #     cv2.line(img, start_xy, end_xy, color, 2 * int(kp_scores[start_p] + kp_scores[end_p]) + 1)
+                    # else:
+                    #     cv2.line(img, start_xy, end_xy, line_color[i], 2 * int(kp_scores[start_p] + kp_scores[end_p]) + 1)
+                    cv2.line(img, start_xy, end_xy, line_color[i], 2 * int(kp_scores[start_p] + kp_scores[end_p]) + 1)
+                else:
+                    cv2.line(img, start_xy, end_xy, (255,255,255), 1)
+
+    return img
+
+
+
+
 if __name__ == '__main__':
     import glob
     tests=sorted(glob.glob(rf"D:\Chen\transform_bag\Bert3D\N0002\*.npy"))

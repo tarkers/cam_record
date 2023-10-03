@@ -105,7 +105,7 @@ class Pose2DQueue:
 
     def clear_queues(self):
         self.clear(self.box_queue)
-        # self.clear(self.pose_queue)
+        self.clear(self.pose_queue)
 
     def clear(self, queue):
         while not queue.empty():
@@ -134,6 +134,7 @@ class Pose2DQueue:
         with torch.no_grad():
             while True:
                 if self.stopped:
+                    print("pose queue is stopped!!")
                     return
                 if self.box_queue.empty():
                     continue
@@ -141,22 +142,40 @@ class Pose2DQueue:
                 if not self.box_queue.full() and not self.pause_stream: 
                     
                     # inps=self.wait_and_get(self.box_queue)
-                    (
-                        inps,
-                        orig_img,   
-                        im_name,
-                        object_ids,
+                    item=self.wait_and_get(self.box_queue)
+                    if item[0] is not None:
+                        self.pose_estimation(item)
+                    else:
+                        self.wait_and_put(self.pose_queue,(None,item[1]))
+                    # (
+                    #     inps,
+                    #     orig_img,   
+                    #     im_name,
+                    #     object_ids,
+                    #     boxes,
+                    #     scores,
+                    #     ids,
+                    #     cropped_boxes,
+                    # )=self.wait_and_get(self.box_queue)
+                    # if inps is not None:
+                    #     self.pose_estimation(inps,
+                    #     orig_img,   
+                    #     im_name,
+                    #     object_ids,
+                    #     boxes,
+                    #     scores,
+                    #     ids,
+                    #     cropped_boxes,)
+                    # else:
+                    #     pass
+                else:
+                    print("pose is full")
+    def pose_estimation(self,item):
+        (inps,orig_img, im_name,object_ids,
                         boxes,
                         scores,
                         ids,
-                        cropped_boxes,
-                    )=self.wait_and_get(self.box_queue)
-                    # if inps is not None:
-                    #     self.pose_estimation(inps, boxes,scores,im_name, ids,cropped_boxes)
-                    # else:
-                    #     pass
-            
-    def pose_estimation(self,inps, boxes,scores,im_name, ids,cropped_boxes):
+                        cropped_boxes)=item
         inps = inps.to(self.device)
        
         datalen = inps.size(0)
@@ -249,7 +268,7 @@ class Pose2DQueue:
         ######
         
         #put result in pose_queue
-        # self.wait_and_put(self.pose_queue,result)
+        self.wait_and_put(self.pose_queue,(result,orig_img))
         
         return
 

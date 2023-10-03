@@ -56,7 +56,7 @@ class webCamDetectQueue:
         """
         pose_queue: the buffer storing post-processed cropped human image for pose estimation
         """
-        if cfg.sp:
+        if self.cfg.sp:
             self._stopped = False
             self.pose_queue = Queue(maxsize=queueSize)
         else:
@@ -66,10 +66,13 @@ class webCamDetectQueue:
     def start_worker(self, target):
         if self.cfg.sp:
             p = Thread(target=target, args=())
+            
         else:
             p = mp.Process(target=target, args=())
+
         # p.daemon = True
         p.start()
+        
         return p
 
     def start(self):
@@ -113,6 +116,8 @@ class webCamDetectQueue:
         # keep looping infinitely
         for i in count():
             if self.stopped:
+                print("detect queue is stopped!!")
+                    
                 stream.release()
                 return
             # if self.pose_queue.full():
@@ -154,7 +159,9 @@ class webCamDetectQueue:
                 )
                 self.image_postprocess(img_det)
                 
-
+            else:
+                print("webcam is full")
+                
     def image_detection(self, inputs):
         """
         start to detect images object

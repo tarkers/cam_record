@@ -15,25 +15,29 @@ from libs.Pose3D.lib.utils.tools import *
 from libs.Pose3D.lib.utils.learning import load_backbone
 from libs.Pose3D.lib.utils.utils_data import flip_data
 from libs.Pose3D.lib.data.dataset_wild import PoseDataset
+
 class Pose3DQueue:
     """
     generate pose queue
     """
 
-    def __init__(self, cfg=None,queueSize=500):
+    def __init__(self, cfg=None,queueSize=0):
         self.cfg = cfg
         self.all_results=[]
         self.pause_stream=False
         
-        
+        if queueSize==0:
+            self.load_model()
+            return
         if cfg.sp:
             self._stopped = False
             self.queue = Queue(maxsize=queueSize)
         else:
             self._stopped = mp.Value("b", False)
             self.queue = mp.Queue(maxsize=queueSize)
-
-        self.load_model()
+        
+            
+        
     
     def load_model(self):
         model_backbone = load_backbone(self.cfg)
@@ -73,13 +77,13 @@ class Pose3DQueue:
         """
         start a thread to  process  pose estimation
         """
-        self.write_json_worker = self.start_worker(self.joints_process)
-        return [ self.write_json_worker ]
+        self.pose_worker = self.start_worker(self.joints_process)
+        return [ self.pose_worker ]
 
     def stop(self):
         # indicate that the thread should be stopped
         self.save(None, None, None, None, None, None, None)
-        self.write_json_worker.join()
+        self.pose_worker.join()
 
     def stop(self):
         # dump datas queues
@@ -113,7 +117,7 @@ class Pose3DQueue:
 
     def joints_process(self):
         
-        
+        self.load_model()
         pose_queue = []
         while True:
             if self.stopped:
@@ -124,17 +128,22 @@ class Pose3DQueue:
             if not self.queue.full() and not self.pause_stream: 
                 # inps=self.wait_and_get(self.queue)
                 data=self.wait_and_get(self.queue)
+                print(data)
                 # all_results.append(data)
                 
                 # wild_dataset = PoseDataset(json, clip_len=opts.clip_len, scale_range=[1,1], focus=opts.focus)
                 # test_loader = DataLoader(wild_dataset, **testloader_params)
-        
-                self.run_3D_pose()
+                # self.read()
+                # self.run_3D_pose()
     
     def extract_specific_id(self):
         pass
         
-    def run_3D_pose(self,test_loader,for_eval=True):
+    def run_3D_pose(self,wild_dataset,for_eval=True):
+        print(wild_dataset)
+        return
+        if not wild_dataset:
+            return
         wild_dataset = PoseDataset(json, clip_len=self.cfg.clip_len, scale_range=[1,1], focus=opts.focus)
         test_loader = DataLoader(wild_dataset, **self.testloader_params)
         results_all=[]
