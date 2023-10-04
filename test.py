@@ -5,7 +5,10 @@ import cv2
 import time
 import json
 import os
+
 ## folder ##
+
+from tracker.mc_bot_sort import BoTSORT
 from util import update_config
 from util.webcam_queue import webCamDetectQueue
 from util.pose_queue import Pose2DQueue
@@ -13,7 +16,7 @@ from util.pose3d_queue import Pose3DQueue
 from libs.detector.apis import get_detector
 from util import Timer
 from libs.vis import plot_boxes,plot_2d_skeleton
-from libs.tracker.mc_bot_sort import BoTSORT
+
 
 def loop():
     n = 0
@@ -25,9 +28,10 @@ def loop():
         # print(json_results)
         
 if __name__ == "__main__":
+
     cfg = update_config(r"libs\configs\configs.yaml")
     pose_cfg = update_config(r"libs\configs\configs.yaml").Pose2D
-    pose3d_cfg = update_config(r"libs\configs\configs.yaml").Pose3D
+    # pose3d_cfg = update_config(r"libs\configs\configs.yaml").Pose3D
     tracker_cfg = update_config(r"libs\configs\configs.yaml").TRACKER
     
     pose_cfg.mode="webcam"
@@ -63,11 +67,10 @@ if __name__ == "__main__":
     q_thread=q.start()
     
     yn=q.yolo_classes
-    time.sleep(2)
     # pose3q.start()
-    time.sleep(2)
+    time.sleep(5)
     pose_thread=poseq.start()
-    time.sleep(2)
+    time.sleep(5)
     
     ## test  write  datas
     tmp=[]
@@ -126,12 +129,9 @@ if __name__ == "__main__":
             # exit()
             labels=[]
             if pose2D is not None :
-                for o_ids in pose2D['result'][0]['idx']:
-                    labels.append(yn[int(o_ids)])
-                
-                new_iamge=plot_2d_skeleton(t_orig_img,pose2D)
+                new_iamge=plot_2d_skeleton(cv2.cvtColor(t_orig_img,cv2.COLOR_BGR2RGB),pose2D)
                 # new_iamge=plot_boxes(orig_img,cropped_boxes,(0,0,255),labels)
-                cv2.imshow("test",new_iamge)
+                cv2.imshow("skeleton",new_iamge)
                 # cv2.imshow("test",cv2.cvtColor(test,cv2.COLOR_BGR2RGB))
                 # cv2.imwrite("test.jpg",cv2.cvtColor(test,cv2.COLOR_BGR2RGB))
                 key = cv2.waitKey(50)
@@ -141,7 +141,7 @@ if __name__ == "__main__":
                     cv2.destroyAllWindows()
                     break
             elif t_orig_img is not None:
-                cv2.imshow("test",t_orig_img)
+                cv2.imshow("skeleton",cv2.cvtColor(t_orig_img,cv2.COLOR_BGR2RGB) )
                 # cv2.imshow("test",cv2.cvtColor(test,cv2.COLOR_BGR2RGB))
                 # cv2.imwrite("test.jpg",cv2.cvtColor(test,cv2.COLOR_BGR2RGB))
                 key = cv2.waitKey(50)
@@ -150,8 +150,9 @@ if __name__ == "__main__":
                     poseq.terminate()
                     cv2.destroyAllWindows()
                     break
-            # else:
-            cv2.imshow("test1",cv2.cvtColor(orig_img,cv2.COLOR_BGR2RGB))
+            # if cropped_boxes is not None:
+            # new_iamge=plot_boxes(orig_img,cropped_boxes,(0,0,255),labels)
+            cv2.imshow("box",cv2.cvtColor(orig_img,cv2.COLOR_BGR2RGB))
             key = cv2.waitKey(50)
             if key == ord('q') or key == 27: # Esc
                 q.terminate()
@@ -160,7 +161,8 @@ if __name__ == "__main__":
                 cv2.destroyAllWindows()
                 break
             # print(scores)
-        if i > 350:
+        if i > 250:
+            print("out of bound!")
             q.terminate()
             poseq.terminate()
             # pose3q.terminate()

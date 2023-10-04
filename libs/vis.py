@@ -153,6 +153,9 @@ def plot_boxes(ori_image,boxes,color=None, labels=None ,line_thickness=3):
     # cv2 show
     img =ori_image.copy()
     img=cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
+    if labels is None:
+        labels =[""]*len(boxes)
+        
     for box,label in zip(boxes,labels):
         # Plots one bounding box on image img
         tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
@@ -192,7 +195,7 @@ def plot_2d_skeleton(frame, im_res, format='coco'):
     return rendered image
     '''
     kp_num = 26
-    
+    frame=frame.copy()
     
     if len(im_res['result']) > 0:
         kp_num = len(im_res['result'][0]['keypoints'])

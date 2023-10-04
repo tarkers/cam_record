@@ -19,7 +19,7 @@ class webCamDetectQueue:
     use webcam stream to detect object
     """
 
-    def __init__(self, input_source, cfg, detector=None, tracker=None, queueSize=1):
+    def __init__(self, input_source, cfg, detector=None, tracker=None, queueSize=150):
         stream = cv2.VideoCapture(int(input_source))
         assert stream.isOpened(), "Cannot capture source"
         self.path = input_source
@@ -116,8 +116,7 @@ class webCamDetectQueue:
         # keep looping infinitely
         for i in count():
             if self.stopped:
-                print("detect queue is stopped!!")
-                    
+                print("detect queue is stopped!!")       
                 stream.release()
                 return
             # if self.pose_queue.full():
@@ -129,7 +128,7 @@ class webCamDetectQueue:
                 not self.pose_queue.full() and not self.pause_stream
             ):  # make sure queue has empty place
                 (grabbed, frame) = stream.read()
-                
+
                 if not grabbed:
                     stream.release()
                     return
@@ -183,8 +182,15 @@ class webCamDetectQueue:
             if isinstance(dets, np.ndarray):
                 dets = torch.from_numpy(dets)
 
+           
+            
             dets = dets.cpu()
-            object_ids = []
+            ## filter class test###
+            if len(self.cfg.detect_classes) > 0:
+                test = [x in self.cfg.detect_classes for x in dets[:, 7]]
+                dets=dets[[test]]
+            
+            object_ids = dets[:, 7:]
             boxes = dets[:, 1:5]
             scores = dets[:, 5:6]
             if self.cfg.tracking:  
@@ -194,24 +200,24 @@ class webCamDetectQueue:
             else:
                 ids = torch.zeros(scores.shape)
 
-                # this is when not initialze class
-                if len(self.cfg.detect_classes) > 0:
-                    # #specific dets class
-                    for data in dets:
-                        if data[7] in self.cfg.detect_classes:
-                            t_ids = torch.unsqueeze(data[7:8], 0)
-                            t_boxes = torch.unsqueeze(data[1:5], 0)
-                            t_scores = torch.unsqueeze(data[5:6], 0)
-                            if len(object_ids) > 0:
-                                object_ids = torch.cat((object_ids, t_ids), axis=0)
-                                boxes = torch.cat((boxes, t_boxes), axis=0)
-                                scores = torch.cat((scores, t_scores), axis=0)
-                            else:
-                                object_ids = t_ids
-                                boxes = t_boxes
-                                scores = t_scores
-                else:
-                    object_ids = torch.zeros(len(dets[:, 0]))
+            #     # this is when not initialze class
+            #     if len(self.cfg.detect_classes) > 0:
+            #         # #specific dets class
+            #         for data in dets:
+            #             if data[7] in self.cfg.detect_classes:
+            #                 t_ids = torch.unsqueeze(data[7:8], 0)
+            #                 t_boxes = torch.unsqueeze(data[1:5], 0)
+            #                 t_scores = torch.unsqueeze(data[5:6], 0)
+            #                 if len(object_ids) > 0:
+            #                     object_ids = torch.cat((object_ids, t_ids), axis=0)
+            #                     boxes = torch.cat((boxes, t_boxes), axis=0)
+            #                     scores = torch.cat((scores, t_scores), axis=0)
+            #                 else:
+            #                     object_ids = t_ids
+            #                     boxes = t_boxes
+            #                     scores = t_scores
+            #     else:
+            #         object_ids = torch.zeros(len(dets[:, 0]))
             
         if isinstance(boxes, int) or boxes.shape[0] == 0:
             return (orig_img, im_name, None, None, None, None, None, None)

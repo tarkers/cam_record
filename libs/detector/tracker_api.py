@@ -13,15 +13,15 @@ import platform
 import torch
 import numpy as np
 
-from tracker.tracker.multitracker import STrack, joint_stracks, sub_stracks, remove_duplicate_stracks
+from trackers.tracker.multitracker import STrack, joint_stracks, sub_stracks, remove_duplicate_stracks
 
-from tracker.preprocess import prep_image, prep_frame
-from tracker.utils.kalman_filter import KalmanFilter
-from tracker.utils.utils import non_max_suppression, scale_coords
-from tracker.utils.log import logger
-from tracker.tracker import matching
-from tracker.tracker.basetrack import BaseTrack, TrackState
-from tracker.models import Darknet
+from trackers.preprocess import prep_image, prep_frame
+from trackers.utils.kalman_filter import KalmanFilter
+from trackers.utils.utils import non_max_suppression, scale_coords
+from trackers.utils.log import logger
+from trackers.tracker import matching
+from trackers.tracker.basetrack import BaseTrack, TrackState
+from trackers.models import Darknet
 
 from detector.apis import BaseDetector
 
