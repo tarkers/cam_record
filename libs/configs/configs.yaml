@@ -1,30 +1,29 @@
 DIR_VIDEO: 'Data'
 
+CHART:
+  VICON:
+    Left: 
+      Color:  !!python/tuple [0,0,255]
+      Name: "Vicon Left Angle"
+    Right: 
+      Color:  !!python/tuple [0,255,0]
+      Name: "Vicon Right  Angle"
 
+  Pose3D:
+    Left: 
+      Color: !!python/tuple [255,0,0]
+      Name: "3D Left Angle"
+    Right: 
+      Color: !!python/tuple [255,255,0]
+      Name: "3D Right Angle"
 
-VICON:
-  Left: 
-    Color:  !!python/tuple [0,0,255]
-    Name: "Vicon Left Angle"
-  Right: 
-    Color:  !!python/tuple [0,255,0]
-    Name: "Vicon Right  Angle"
-
-Pose3D:
-  Left: 
-    Color: !!python/tuple [255,0,0]
-    Name: "3D Left Angle"
-  Right: 
-    Color: !!python/tuple [255,255,0]
-    Name: "3D Right Angle"
-
-Pose2D:
-  Left: 
-    Color: !!python/tuple [15 ,185 ,255]
-    Name: "2D Left Angle"
-  Right: 
-    Color: !!python/tuple [34 ,139 ,34]
-    Name: "3D Right Angle"
+  Pose2D:
+    Left: 
+      Color: !!python/tuple [15 ,185 ,255]
+      Name: "2D Left Angle"
+    Right: 
+      Color: !!python/tuple [34 ,139 ,34]
+      Name: "3D Right Angle"
 
 
 mode: "webcam"
@@ -85,7 +84,37 @@ device: "0"
 #   evaluate: "libs/Pose3D/lib/model/FT_MB_lite_MB_ft_h36m_global_lite.bin"
 #   clip_len: 243
 #   focus: 
+TRACKER:
+  track_high_thresh: 0.3
+  track_low_thresh: 0.05
+  new_track_thresh: 0.4
+  track_buffer: 30
+  match_thresh: 0.7
+  aspect_ratio_thresh: 1.6
+  min_box_area: 10
+  #mot20
+  mot20: False
+
+  # ReID module
+  proximity_thresh: 0.5
+  appearance_thresh: 0.25
+ 
+  with_reid: False
+  fast_reid_config: fast_reid/configs/MOT17/sbs_S50.yml
+  fast_reid_weights: pretrained/mot17_sbs_S50.pth
+
+  #gmc
+  cmc_method: "sparseOptFlow"
+  name: "exp"
+
+
+  jde: False
+  ablation: False
+
   
+
+
+
 Pose2D:
   checkpoint: "libs/pose2D/models/halpe26_fast_res50_256x192.pth"
   posebatch: 64
@@ -153,11 +182,8 @@ Pose2D:
     - 130
 
 
-  
-
-
 Detector:
-  enable_tracking: False
+  tracking: False
   detector: "yolov7"
   detbatch: 5
   detect_classes: [0]

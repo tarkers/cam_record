@@ -13,6 +13,7 @@ from util.pose3d_queue import Pose3DQueue
 from libs.detector.apis import get_detector
 from util import Timer
 from libs.vis import plot_boxes,plot_2d_skeleton
+from libs.tracker.mc_bot_sort import BoTSORT
 
 def loop():
     n = 0
@@ -27,12 +28,13 @@ if __name__ == "__main__":
     cfg = update_config(r"libs\configs\configs.yaml")
     pose_cfg = update_config(r"libs\configs\configs.yaml").Pose2D
     pose3d_cfg = update_config(r"libs\configs\configs.yaml").Pose3D
+    tracker_cfg = update_config(r"libs\configs\configs.yaml").TRACKER
     
     pose_cfg.mode="webcam"
     pose_cfg.device="0"
     pose_cfg.gpus=[0]
     pose_cfg.min_box_area=0
-    # cfg.enable_tracking = False
+    # cfg.tracking = False
     # cfg.detect_classes=[0]
     test = update_config(r"libs\configs\configs.yaml").Detector
     test.gpus = "0"
@@ -48,8 +50,10 @@ if __name__ == "__main__":
     test.tracking = None
     # test.tracking = test.pose_track or test.pose_flow or test.detector=='tracker'
 
-    print(test)
-    q = webCamDetectQueue(0, test, get_detector(test))
+    # Create tracker
+    tracker = BoTSORT(tracker_cfg, frame_rate=30.0)
+    
+    q = webCamDetectQueue(0, test, get_detector(test),tracker)
     poseq=Pose2DQueue(pose_cfg)
     #pose3q=Pose3DQueue(pose3d_cfg)
     print("Starting webcam demo, press Ctrl + C to terminate...")

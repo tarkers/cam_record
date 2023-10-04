@@ -19,7 +19,7 @@ from util.utils import update_config, video_to_frame, load_json, load_3d_angles
 from components import MessageBox, Loading, Clock, Canvas
 import yaml
 
-CFG=update_config(r"libs\configs\configs.yaml")
+CFG=update_config(r"libs\configs\configs.yaml").CHART
 # with open(r"libs\configs\configs.yaml", "r") as stream:
 #     CFG = yaml.load(stream, Loader=yaml.FullLoader)
 
