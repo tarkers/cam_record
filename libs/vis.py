@@ -146,28 +146,36 @@ def renew_folder(folder_path):
     p = pathlib.Path(folder_path)
     p.mkdir(parents=True, exist_ok=True)
 
-def plot_boxes(ori_image,boxes,color=None, labels=None ,line_thickness=3):
+def plot_boxes(ori_image,boxes,ids=None,classes=None ,color=None ,line_thickness=3):
     '''
-    plot detect bboxes with labels
+    plot detect bboxes with ids and classes
     '''
     # cv2 show
     img =ori_image.copy()
-    img=cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
-    if labels is None:
-        labels =[""]*len(boxes)
-        
-    for box,label in zip(boxes,labels):
-        # Plots one bounding box on image img
+
+    for idx,box in enumerate(boxes):
+        ## draw boxes
         tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
         color = color or [random.randint(0, 255) for _ in range(3)]
         c1, c2 = (int(box[0]), int(box[1])), (int(box[2]), int(box[3]))
         cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
-        if label:
+        
+        ## draw ids
+        if ids is not None:
+            tf = max(tl - 1, 1)  # font thickness
+            _id =str(int(ids[idx]))
+            cv2.putText(img, _id, (c1[0], c1[1] - 2), 0, tl / 3, [255, 0, 0], thickness=tf, lineType=cv2.LINE_AA)
+        
+        ## draw classes
+        if  classes is not None:
+            label=classes[idx]
             tf = max(tl - 1, 1)  # font thickness
             t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
             c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
             cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
             cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+
+
     return img
 
 

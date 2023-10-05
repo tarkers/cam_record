@@ -51,11 +51,10 @@ if __name__ == "__main__":
     # test.device = 
     test.detbatch = test.detbatch * len(test.gpus)
     # test.posebatch = test.posebatch * len(test.gpus)
-    test.tracking = None
     # test.tracking = test.pose_track or test.pose_flow or test.detector=='tracker'
 
     # Create tracker
-    tracker = BoTSORT(tracker_cfg, frame_rate=30.0)
+    tracker = BoTSORT(tracker_cfg, frame_rate=60.0)
     
     q = webCamDetectQueue(0, test, get_detector(test),tracker)
     poseq=Pose2DQueue(pose_cfg)
@@ -68,9 +67,9 @@ if __name__ == "__main__":
     
     yn=q.yolo_classes
     # pose3q.start()
-    time.sleep(5)
+    time.sleep(2)
     pose_thread=poseq.start()
-    time.sleep(5)
+    time.sleep(8)
     
     ## test  write  datas
     tmp=[]
@@ -92,29 +91,23 @@ if __name__ == "__main__":
                 inps,
                 orig_img,   
                 im_name,
-                object_ids,
+                class_ids,
                 boxes,
                 scores,
                 ids,
                 cropped_boxes,
             ) =item
             
-            item=poseq.pose_read()
-            if item is not None:
-                (pose2D,t_orig_img)=item
+            items=poseq.pose_read()
+            if items is not None:
+                (pose2D,t_orig_img)=items
             else:
                 pose2D=None
                 t_orig_img=None
             ## test run 3D POSE###
             # pose3q.run_3D_pose(pose2D)
             
-            # if inps is None:
-                
-            #     continue
-            # poseq.pose_estimation(inps, boxes,scores,im_name, ids,cropped_boxes)
-            # if inps is not None:
-            #     poseq.test_pose(inps)
-            
+
             # test=inps[0]
             # test=test.permute(1, 2, 0)
             # test =test.cpu().numpy()
@@ -122,12 +115,7 @@ if __name__ == "__main__":
             # np.save("test.npy",inps.cpu().numpy())
             # print(test.shape)
             
-            # test=cv2.normalize(test,None,0,255,cv2.NORM_MINMAX,dtype=cv2.CV_8UC3)
-            # print(test.shape)
-            # q.terminate()
-            # poseq.terminate()
-            # exit()
-            labels=[]
+
             if pose2D is not None :
                 new_iamge=plot_2d_skeleton(cv2.cvtColor(t_orig_img,cv2.COLOR_BGR2RGB),pose2D)
                 # new_iamge=plot_boxes(orig_img,cropped_boxes,(0,0,255),labels)
@@ -150,24 +138,33 @@ if __name__ == "__main__":
                     poseq.terminate()
                     cv2.destroyAllWindows()
                     break
-            # if cropped_boxes is not None:
-            # new_iamge=plot_boxes(orig_img,cropped_boxes,(0,0,255),labels)
-            cv2.imshow("box",cv2.cvtColor(orig_img,cv2.COLOR_BGR2RGB))
-            key = cv2.waitKey(50)
-            if key == ord('q') or key == 27: # Esc
-                q.terminate()
-                poseq.terminate()
-                # pose3q.terminate()
-                cv2.destroyAllWindows()
-                break
+            if cropped_boxes is not None:
+                new_iamge=plot_boxes(orig_img,cropped_boxes,ids,None,(0,0,255))
+                cv2.imshow("box",cv2.cvtColor(new_iamge,cv2.COLOR_BGR2RGB))
+                key = cv2.waitKey(30)
+                if key == ord('q') or key == 27: # Esc
+                    q.terminate()
+                    poseq.terminate()
+                    # pose3q.terminate()
+                    cv2.destroyAllWindows()
+                    break
+            else:
+                cv2.imshow("box",cv2.cvtColor(orig_img,cv2.COLOR_BGR2RGB))
+                key = cv2.waitKey(30)
+                if key == ord('q') or key == 27: # Esc
+                    q.terminate()
+                    poseq.terminate()
+                    # pose3q.terminate()
+                    cv2.destroyAllWindows()
+                    break
             # print(scores)
-        if i > 250:
+        if i > 100:
             print("out of bound!")
             q.terminate()
             poseq.terminate()
-            # pose3q.terminate()
             cv2.destroyAllWindows()
             break
+    print("stop thread")
     q_thread[0].terminate()
     q_thread[0].join()
     pose_thread[0].terminate()

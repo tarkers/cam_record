@@ -27,7 +27,6 @@ def setup(args):
 
 
 def main(args):
-
     cfg = setup(args)
 
     if args.eval_only:
@@ -43,14 +42,12 @@ def main(args):
     trainer = DefaultTrainer(cfg)
 
     trainer.resume_or_load(resume=args.resume)
-
     return trainer.train()
 
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
     print("Command Line Args:", args)
-
     launch(
         main,
         args.num_gpus,

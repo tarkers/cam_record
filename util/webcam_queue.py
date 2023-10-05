@@ -9,7 +9,7 @@ import torch.multiprocessing as mp
 
 # # our folder##
 from libs.presets import BoxTransform
-
+from libs.bbox import bbox_xywh_to_xyxy
 # from utils import update_config
 # from libs.detector.apis import get_detector
 
@@ -99,6 +99,7 @@ class webCamDetectQueue:
 
     def clear(self, queue):
         while not queue.empty():
+            print(queue.qsize())
             queue.get()
 
     def wait_and_put(self, queue, item):
@@ -113,6 +114,7 @@ class webCamDetectQueue:
         stream = cv2.VideoCapture(self.path)
         assert stream.isOpened(), "Cannot capture source"
         frame_idx = 0
+        self.tracker.init_fastreid() #load for thread
         # keep looping infinitely
         for i in count():
             if self.stopped:
@@ -164,11 +166,11 @@ class webCamDetectQueue:
     def image_detection(self, inputs):
         """
         start to detect images object
-        dets(n,(batch_ind,x1,y1,x2,y2,c,s,idx of cls))
+        dets(n,(batch_ind,x1,y1,x2,y2,box_confidence,cls_score,idx of cls))
         bbox:dets [:,1:5]
-        scores:dets [:,5:6]
-        bbox:dets [:,6:7]
-        object_ids=dets [:,7:8]
+        box_confidence:dets [:,5]
+        class_ids:dets [:,6]
+        cls_score:dets [:,7]
         """
         img, orig_img, im_name, im_dim_list = inputs
         if img is None or self.stopped:
@@ -179,47 +181,21 @@ class webCamDetectQueue:
             if isinstance(dets, int) or dets.shape[0] == 0:  # detect is None
                 return (orig_img, im_name, None, None, None, None, None, None)
 
-            if isinstance(dets, np.ndarray):
-                dets = torch.from_numpy(dets)
-
-           
-            
             dets = dets.cpu()
-            ## filter class test###
-            if len(self.cfg.detect_classes) > 0:
-                test = [x in self.cfg.detect_classes for x in dets[:, 7]]
-                dets=dets[[test]]
-            
-            object_ids = dets[:, 7:]
-            boxes = dets[:, 1:5]
-            scores = dets[:, 5:6]
-            if self.cfg.tracking:  
-                dets=self.tracker.update(dets,orig_img) # for object tracking
-                ids = dets[:, 6:7]
-                object_ids = torch.zeros(len(dets[:, 0]))
+            if isinstance(dets, torch.FloatTensor):
+                dets = torch.Tensor.numpy(dets)
+            # (boxes, ids, scores, class_ids) = \
+            #         self.tracker_udpate(dets[:, 1:], orig_img) 
+            if self.cfg.tracking:
+                (boxes, ids, scores, class_ids) = \
+                    self.tracker_udpate(dets[:, 1:], orig_img) 
             else:
-                ids = torch.zeros(scores.shape)
+                class_ids = dets[:, 6] 
+                boxes = dets[:, 1:5]
+                scores = dets[:, 5:6]
+                ids = np.zeros(scores.shape)
 
-            #     # this is when not initialze class
-            #     if len(self.cfg.detect_classes) > 0:
-            #         # #specific dets class
-            #         for data in dets:
-            #             if data[7] in self.cfg.detect_classes:
-            #                 t_ids = torch.unsqueeze(data[7:8], 0)
-            #                 t_boxes = torch.unsqueeze(data[1:5], 0)
-            #                 t_scores = torch.unsqueeze(data[5:6], 0)
-            #                 if len(object_ids) > 0:
-            #                     object_ids = torch.cat((object_ids, t_ids), axis=0)
-            #                     boxes = torch.cat((boxes, t_boxes), axis=0)
-            #                     scores = torch.cat((scores, t_scores), axis=0)
-            #                 else:
-            #                     object_ids = t_ids
-            #                     boxes = t_boxes
-            #                     scores = t_scores
-            #     else:
-            #         object_ids = torch.zeros(len(dets[:, 0]))
-            
-        if isinstance(boxes, int) or boxes.shape[0] == 0:
+        if isinstance(boxes, int) or boxes.size(0) == 0:
             return (orig_img, im_name, None, None, None, None, None, None)
         inps = torch.zeros(boxes.size(0), 3, *self._input_size)
         cropped_boxes = torch.zeros(boxes.size(0), 4)
@@ -227,24 +203,46 @@ class webCamDetectQueue:
         return (
             orig_img,
             im_name,
-            object_ids,
+            class_ids,
             boxes,
             scores,  # enforce class
             ids,  # enforce class
             inps,
             cropped_boxes,
         )
-
     
-    def tracker_update(self,targets):
-        pass
+    def tracker_udpate(self, dets, orig_img):
+        online_targets = self.tracker.update(dets, orig_img)
+        online_tlwhs = []
+        online_ids = []
+        online_scores = []
+        online_cls = []
+        for t in online_targets:
+            if t.tlwh[2] * t.tlwh[3] > self.cfg.min_box_area:
+                online_tlwhs.append(t.tlwh)
+                online_ids.append(t.track_id)
+                online_scores.append(t.score)
+                online_cls.append(int(t.cls))
+                
+        # if have bbox then change to tesor      
+        if len(online_tlwhs):
+            online_tlwhs = torch.from_numpy(bbox_xywh_to_xyxy(np.array(online_tlwhs)))
+        else:
+            online_tlwhs=torch.FloatTensor([])
+        online_ids= torch.FloatTensor(online_ids)
+        online_scores= torch.FloatTensor(online_scores)
+        online_cls= torch.FloatTensor(online_cls)
+        return (online_tlwhs, online_ids, online_scores, online_cls)
+        
+        # new_hm = torch.Tensor(new_hm).to(args.device)
+        # return new_boxes,new_scores,new_ids,new_hm,new_crop
         
     def image_postprocess(self, inputs):
         with torch.no_grad():
             (
                 orig_img,
                 im_name,
-                object_ids,
+                class_ids,
                 boxes,
                 scores,
                 ids,
@@ -263,7 +261,7 @@ class webCamDetectQueue:
                 # print("no box detected!")
                 self.wait_and_put(
                     self.pose_queue,
-                    (None, orig_img, im_name, object_ids, boxes, scores, ids, None),
+                    (None, orig_img, im_name, class_ids, boxes, scores, ids, None),
                 )
 
                 return
@@ -279,7 +277,7 @@ class webCamDetectQueue:
                     inps,
                     orig_img,
                     im_name,
-                    object_ids,
+                    class_ids,
                     boxes,
                     scores,
                     ids,
@@ -293,7 +291,7 @@ class webCamDetectQueue:
             inps: cropped images
             orig_img: original frame (is RGB)
             im_name: image name
-            object_ids: detect object IDs
+            class_ids: detect object class IDs
             boxes: list of boxes detected
             scores: bbox detect scores
             ids: ids for tracker
@@ -313,7 +311,7 @@ class webCamDetectQueue:
         '''
         return 80 object names base on idx
         '''
-        return  [ 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+        return  ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
          'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
          'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
          'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
@@ -322,5 +320,4 @@ class webCamDetectQueue:
          'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
          'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
          'hair drier', 'toothbrush' ]
-    
    

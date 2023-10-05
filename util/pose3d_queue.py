@@ -14,7 +14,6 @@ from tqdm import tqdm
 from libs.Pose3D.lib.utils.tools import *
 from libs.Pose3D.lib.utils.learning import load_backbone
 from libs.Pose3D.lib.utils.utils_data import flip_data
-from libs.Pose3D.lib.data.dataset_wild import PoseDataset
 
 class Pose3DQueue:
     """
@@ -85,9 +84,7 @@ class Pose3DQueue:
         self.save(None, None, None, None, None, None, None)
         self.pose_worker.join()
 
-    def stop(self):
-        # dump datas queues
-        self.clear_queues()
+
 
     def terminate(self):
         if self.cfg.sp:
@@ -142,37 +139,37 @@ class Pose3DQueue:
     def run_3D_pose(self,wild_dataset,for_eval=True):
         print(wild_dataset)
         return
-        if not wild_dataset:
-            return
-        wild_dataset = PoseDataset(json, clip_len=self.cfg.clip_len, scale_range=[1,1], focus=opts.focus)
-        test_loader = DataLoader(wild_dataset, **self.testloader_params)
-        results_all=[]
-        with torch.no_grad():
-            for batch_input in tqdm(test_loader):
-                N, T = batch_input.shape[:2]
-                if torch.cuda.is_available():
-                    batch_input = batch_input.cuda()
-                if self.cfg.no_conf:
-                    batch_input = batch_input[:, :, :, :2]
-                if self.cfg.flip:    
-                    batch_input_flip = flip_data(batch_input)
-                    predicted_3d_pos_1 = self.model(batch_input)
-                    predicted_3d_pos_flip = self.model(batch_input_flip)
-                    predicted_3d_pos_2 = flip_data(predicted_3d_pos_flip) # Flip back
-                    predicted_3d_pos = (predicted_3d_pos_1 + predicted_3d_pos_2) / 2.0
-                else:
-                    predicted_3d_pos = self.model(batch_input)
-                if self.cfg.rootrel:
-                    predicted_3d_pos[:,:,0,:]=0                    # [N,T,17,3]
-                else:
-                    predicted_3d_pos[:,0,0,2]=0
-                    pass
-                if self.cfg.gt_2d:
-                    predicted_3d_pos[...,:2] = batch_input[...,:2]
-                results_all.append(predicted_3d_pos.cpu().numpy())
-        results_all = np.hstack(results_all)
-        results_all = np.concatenate(results_all)     
-        print(results_all.shape)  
+        # if not wild_dataset:
+        #     return
+        # wild_dataset = PoseDataset(json, clip_len=self.cfg.clip_len, scale_range=[1,1], focus=opts.focus)
+        # test_loader = DataLoader(wild_dataset, **self.testloader_params)
+        # results_all=[]
+        # with torch.no_grad():
+        #     for batch_input in tqdm(test_loader):
+        #         N, T = batch_input.shape[:2]
+        #         if torch.cuda.is_available():
+        #             batch_input = batch_input.cuda()
+        #         if self.cfg.no_conf:
+        #             batch_input = batch_input[:, :, :, :2]
+        #         if self.cfg.flip:    
+        #             batch_input_flip = flip_data(batch_input)
+        #             predicted_3d_pos_1 = self.model(batch_input)
+        #             predicted_3d_pos_flip = self.model(batch_input_flip)
+        #             predicted_3d_pos_2 = flip_data(predicted_3d_pos_flip) # Flip back
+        #             predicted_3d_pos = (predicted_3d_pos_1 + predicted_3d_pos_2) / 2.0
+        #         else:
+        #             predicted_3d_pos = self.model(batch_input)
+        #         if self.cfg.rootrel:
+        #             predicted_3d_pos[:,:,0,:]=0                    # [N,T,17,3]
+        #         else:
+        #             predicted_3d_pos[:,0,0,2]=0
+        #             pass
+        #         if self.cfg.gt_2d:
+        #             predicted_3d_pos[...,:2] = batch_input[...,:2]
+        #         results_all.append(predicted_3d_pos.cpu().numpy())
+        # results_all = np.hstack(results_all)
+        # results_all = np.concatenate(results_all)     
+        # print(results_all.shape)  
     @property
     def stopped(self):
         if self.cfg.sp:

@@ -13,3 +13,6 @@ libs/detector/yolov7/data/yolov7x.pt
 traced_model.pt
 libs/pose2D/models/halpe26_fast_res50_256x192.pth
 libs/Pose3D/lib/model/FT_MB_lite_MB_ft_h36m_global_lite.bin
+remind.txt
+./fast_reid/pretrained/pretrained/*
+

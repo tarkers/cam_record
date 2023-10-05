@@ -106,7 +106,7 @@ class YOLODetector(BaseDetector):
         collect bbox w.r.t original image size
         Input: imgs(torch.FloatTensor,(b,3,h,w)): pre-processed mini-batch image input
                orig_dim_list(torch.FloatTensor, (b,(w,h,w,h))): original mini-batch image size
-        Output: dets(torch.cuda.FloatTensor,(n,(batch_idx,x1,y1,x2,y2,c,s,idx of cls))): human detection results
+        Output: dets(torch.cuda.FloatTensor,(n,(batch_idx,x1,y1,x2,y2,c,idx of cls,s))): human detection results
         """
         global tt
         
@@ -207,10 +207,13 @@ class YOLODetector(BaseDetector):
             nms_conf -= 0.05
             dets = self.write_results(prediction_bak.clone(), confidence, num_classes, nms, nms_conf)
 
+        # swap class score to last one!!!
+        dets[:,-2:]=dets[:, [-1,-2]]
         return dets
 
     def write_results(self, prediction, confidence, num_classes, nms=True, nms_conf=0.4):
         args = self.detector_opt
+        
         #prediction: (batchsize, num of objects, (xc,yc,w,h,box confidence, 80 class scores))
         conf_mask = (prediction[:, :, 4] > confidence).float().float().unsqueeze(2)
         prediction = prediction * conf_mask
@@ -248,10 +251,10 @@ class YOLODetector(BaseDetector):
             #image_pred:(n,(x1,y1,x2,y2,c,s,idx of cls))
             
             image_pred = torch.cat(seq, 1)
-
+    
             #Get rid of the zero entries
             non_zero_ind =  (torch.nonzero(image_pred[:,4]))
-
+            
             image_pred_ = image_pred[non_zero_ind.squeeze(),:].view(-1,7)
 
             #Get the various classes detected in the image
@@ -259,10 +262,13 @@ class YOLODetector(BaseDetector):
                 img_classes = unique(image_pred_[:,-1])
             except:
                 continue
-
-            #WE will do NMS classwise
+            
+            #WE can  do NMS classwise
             #print(img_classes)
             for cls in img_classes:
+                if int(cls) not in self.detector_opt.detect_classes:    #filter class
+                    continue
+
                 #get the detections with one particular class
                 cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
                 class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
@@ -273,7 +279,7 @@ class YOLODetector(BaseDetector):
                 #confidence is at the top
                 conf_sort_index = torch.sort(image_pred_class[:,4], descending = True )[1]
                 image_pred_class = image_pred_class[conf_sort_index]
-                idx = image_pred_class.size(0)
+                # idx = image_pred_class.size(0)
             
                 #if nms has to be done
                 if nms:

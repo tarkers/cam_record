@@ -9,7 +9,7 @@ MODEL:
     DEPTH: base
     FEAT_DIM: 768
     PRETRAIN: True
-    PRETRAIN_PATH: /home/nir/.cache/torch/checkpoints/jx_vit_base_p16_224-80ecf9dd.pth
+    PRETRAIN_PATH: /export/home/lxy/.cache/torch/checkpoints/jx_vit_base_p16_224-80ecf9dd.pth
     STRIDE_SIZE: (16, 16)
     DROP_PATH_RATIO: 0.1
     DROP_RATIO: 0.0
@@ -64,11 +64,8 @@ SOLVER:
   WEIGHT_DECAY: 0.0001
   IMS_PER_BATCH: 64
 
-#  SCHED: CosineAnnealingLR
-#  ETA_MIN_LR: 0.000016
-  SCHED: MultiStepLR
-  STEPS: [ 40, 90 ]
-  GAMMA: 0.1
+  SCHED: CosineAnnealingLR
+  ETA_MIN_LR: 0.000016
 
   WARMUP_FACTOR: 0.01
   WARMUP_ITERS: 1000
@@ -76,14 +73,13 @@ SOLVER:
   CLIP_GRADIENTS:
     ENABLED: True
 
-  CHECKPOINT_PERIOD: 1
+  CHECKPOINT_PERIOD: 30
 
 TEST:
-  EVAL_PERIOD: 5000000
+  EVAL_PERIOD: 5
   IMS_PER_BATCH: 128
 
-# CUDNN_BENCHMARK: True
-CUDNN_BENCHMARK: False
+CUDNN_BENCHMARK: True
 
 DATASETS:
   NAMES: ("Market1501",)

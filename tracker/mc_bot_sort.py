@@ -15,7 +15,6 @@ class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
 
     def __init__(self, tlwh, score, cls, feat=None, feat_history=50):
-
         # wait activate
         self._tlwh = np.asarray(tlwh, dtype=np.float)
         self.kalman_filter = None
@@ -248,11 +247,14 @@ class BoTSORT:
         self.proximity_thresh = args.proximity_thresh
         self.appearance_thresh = args.appearance_thresh
 
-        if args.with_reid:
-            self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights, args.device)
+        # if args.with_reid:
+        #     self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights)
 
         self.gmc = GMC(method=args.cmc_method, verbose=[args.name, args.ablation])
 
+    def init_fastreid(self):
+        self.encoder = FastReIDInterface(self.args.fast_reid_config, self.args.fast_reid_weights)
+        
     def update(self, output_results, img):
         self.frame_id += 1
         activated_starcks = []
@@ -265,14 +267,13 @@ class BoTSORT:
             scores = output_results[:, 4]
             classes = output_results[:, 5]
             features = output_results[:, 6:]
-
+            
             # Remove bad detections
             lowest_inds = scores > self.track_low_thresh
             bboxes = bboxes[lowest_inds]
             scores = scores[lowest_inds]
             classes = classes[lowest_inds]
-            features = output_results[lowest_inds]
-
+            features = features[lowest_inds]           
             # Find high threshold detections
             remain_inds = scores > self.args.track_high_thresh
             dets = bboxes[remain_inds]
@@ -290,7 +291,7 @@ class BoTSORT:
         '''Extract embeddings '''
         if self.args.with_reid:
             features_keep = self.encoder.inference(img, dets)
-
+            
         if len(dets) > 0:
             '''Detections'''
             if self.args.with_reid:
@@ -299,9 +300,11 @@ class BoTSORT:
             else:
                 detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s, c) for
                               (tlbr, s, c) in zip(dets, scores_keep, classes_keep)]
+            # detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s, c) for
+            #                   (tlbr, s, c) in zip(dets, scores_keep, classes_keep)]
         else:
             detections = []
-
+        
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
         tracked_stracks = []  # type: list[STrack]
@@ -313,7 +316,7 @@ class BoTSORT:
 
         ''' Step 2: First association, with high score detection boxes'''
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
-
+        
         # Predict the current location with KF
         STrack.multi_predict(strack_pool)
 
@@ -331,7 +334,8 @@ class BoTSORT:
 
         if self.args.with_reid:
             emb_dists = matching.embedding_distance(strack_pool, detections) / 2.0
-            raw_emb_dists = emb_dists.copy()
+            # raw_emb_dists = emb_dists.copy()
+
             emb_dists[emb_dists > self.appearance_thresh] = 1.0
             emb_dists[ious_dists_mask] = 1.0
             dists = np.minimum(ious_dists, emb_dists)
@@ -346,6 +350,7 @@ class BoTSORT:
             # dists[ious_dists_mask] = 1.0
         else:
             dists = ious_dists
+            
 
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.args.match_thresh)
 
@@ -363,7 +368,7 @@ class BoTSORT:
         if len(scores):
             inds_high = scores < self.args.track_high_thresh
             inds_low = scores > self.args.track_low_thresh
-            inds_second = np.logical_and(inds_low, inds_high)
+            inds_second = np.logical_and(inds_low, inds_high).astype(bool)
             dets_second = bboxes[inds_second]
             scores_second = scores[inds_second]
             classes_second = classes[inds_second]

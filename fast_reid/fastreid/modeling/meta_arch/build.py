@@ -15,12 +15,13 @@ and expected to return a `nn.Module` object.
 """
 
 
-def build_model(cfg):
+def build_model(cfg,device):
     """
     Build the whole model architecture, defined by ``cfg.MODEL.META_ARCHITECTURE``.
     Note that it does not load any weights from ``cfg``.
     """
     meta_arch = cfg.MODEL.META_ARCHITECTURE
+    
     model = META_ARCH_REGISTRY.get(meta_arch)(cfg)
-    model.to(torch.device(cfg.MODEL.DEVICE))
+    model.to(torch.device(device))
     return model

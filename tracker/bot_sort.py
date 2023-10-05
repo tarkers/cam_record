@@ -223,7 +223,7 @@ class BoTSORT(object):
         self.appearance_thresh = args.appearance_thresh
 
         if args.with_reid:
-            self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights, args.device)
+            self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights)
 
         self.gmc = GMC(method=args.cmc_method, verbose=[args.name, args.ablation])
 

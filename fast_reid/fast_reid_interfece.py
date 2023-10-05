@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 # from torch.backends import cudnn
@@ -50,29 +50,30 @@ def preprocess(image, input_size):
 
 
 class FastReIDInterface:
-    def __init__(self, config_file, weights_path, device, batch_size=8):
+    def __init__(self, config_file, weights_path, batch_size=8):
         super(FastReIDInterface, self).__init__()
-        if device != 'cpu':
-            self.device = 'cuda'
-        else:
-            self.device = 'cpu'
-
+        
+        self.device=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        
         self.batch_size = batch_size
-
+        self.weights_path =weights_path
         self.cfg = setup_cfg(config_file, ['MODEL.WEIGHTS', weights_path])
 
-        self.model = build_model(self.cfg)
-        self.model.eval()
+        self.load_model()
 
-        Checkpointer(self.model).load(weights_path)
+    def load_model(self):
+        self.model = build_model(self.cfg,self.device)
+        # self.model.eval()
 
+        Checkpointer(self.model).load(self.weights_path)
+        # self.model.to(self.deivce)
         if self.device != 'cpu':
-            self.model = self.model.eval().to(device='cuda').half()
+            self.model = self.model.eval().to(self.device).half()
         else:
             self.model = self.model.eval()
 
         self.pH, self.pW = self.cfg.INPUT.SIZE_TEST
-
+        
     def inference(self, image, detections):
 
         if detections is None or np.size(detections) == 0:
@@ -106,7 +107,6 @@ class FastReIDInterface:
             patch = patch.to(device=self.device).half()
 
             patches.append(patch)
-
             if (d + 1) % self.batch_size == 0:
                 patches = torch.stack(patches, dim=0)
                 batch_patches.append(patches)
@@ -118,34 +118,36 @@ class FastReIDInterface:
 
         features = np.zeros((0, 2048))
         # features = np.zeros((0, 768))
+        with torch.no_grad():
+            for patches in batch_patches:
 
-        for patches in batch_patches:
+                # Run model
+                # patches_ = torch.clone(patches)
+                pred = self.model(patches)
 
-            # Run model
-            patches_ = torch.clone(patches)
-            pred = self.model(patches)
-            pred[torch.isinf(pred)] = 1.0
+                
+                pred[torch.isinf(pred)] = 1.0
+                
+                feat = postprocess(pred)
 
-            feat = postprocess(pred)
+                # nans = np.isnan(np.sum(feat, axis=1))
+                # if np.isnan(feat).any():
+                #     for n in range(np.size(nans)):
+                #         if nans[n]:
+                #             # patch_np = patches[n, ...].squeeze().transpose(1, 2, 0).cpu().numpy()
+                #             patch_np = patches_[n, ...]
+                #             patch_np_ = torch.unsqueeze(patch_np, 0)
+                #             pred_ = self.model(patch_np_)
 
-            nans = np.isnan(np.sum(feat, axis=1))
-            if np.isnan(feat).any():
-                for n in range(np.size(nans)):
-                    if nans[n]:
-                        # patch_np = patches[n, ...].squeeze().transpose(1, 2, 0).cpu().numpy()
-                        patch_np = patches_[n, ...]
-                        patch_np_ = torch.unsqueeze(patch_np, 0)
-                        pred_ = self.model(patch_np_)
+                #             patch_np = torch.squeeze(patch_np).cpu()
+                #             patch_np = torch.permute(patch_np, (1, 2, 0)).int()
+                #             patch_np = patch_np.numpy()
 
-                        patch_np = torch.squeeze(patch_np).cpu()
-                        patch_np = torch.permute(patch_np, (1, 2, 0)).int()
-                        patch_np = patch_np.numpy()
+                            # plt.figure()
+                            # plt.imshow(patch_np)
+                            # plt.show()
 
-                        plt.figure()
-                        plt.imshow(patch_np)
-                        plt.show()
-
-            features = np.vstack((features, feat))
+                features = np.vstack((features, feat))
 
         return features
 

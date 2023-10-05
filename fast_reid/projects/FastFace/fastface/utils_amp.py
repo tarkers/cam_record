@@ -7,7 +7,7 @@
 from typing import Dict, List
 
 import torch
-import collections.abc as container_abcs
+from torch._six import container_abcs
 from torch.cuda.amp import GradScaler
 
 

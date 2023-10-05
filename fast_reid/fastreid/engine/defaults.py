@@ -192,9 +192,7 @@ class DefaultTrainer(TrainerBase):
         Args:
             cfg (CfgNode):
         """
-
         super().__init__()
-
         logger = logging.getLogger("fastreid")
         if not logger.isEnabledFor(logging.INFO):  # setup_logger is not called for fastreid
             setup_logger()

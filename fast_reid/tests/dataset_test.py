@@ -11,7 +11,7 @@ from config import cfg
 import argparse
 from data.datasets import init_dataset
 # cfg.DATALOADER.SAMPLER = 'triplet'
-cfg.DATASETS.NAMES = ("market1501", "dukemtmc", "cuhk03", "msmt17", "mot17", "mot20",)
+cfg.DATASETS.NAMES = ("market1501", "dukemtmc", "cuhk03", "msmt17",)
 
 
 if __name__ == '__main__':

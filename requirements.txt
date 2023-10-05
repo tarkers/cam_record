@@ -1,0 +1,29 @@
+#conda install -c conda-forge faiss-gpu
+##
+# install cython box 
+# python setup.py build_ext install
+##
+lap
+yacs
+## fast reid
+matplotlib
+scipy
+Pillow
+numpy
+prettytable
+easydict
+scikit-learn
+pyyaml
+yacs
+termcolor
+tabulate
+tensorboard
+opencv-python
+pyyaml
+yacs
+termcolor
+scikit-learn
+tabulate
+gdown
+
+seaborn

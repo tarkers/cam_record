@@ -91,17 +91,16 @@ TRACKER:
   track_buffer: 30
   match_thresh: 0.7
   aspect_ratio_thresh: 1.6
-  min_box_area: 10
   #mot20
   mot20: False
 
   # ReID module
+  with_reid: False
   proximity_thresh: 0.5
   appearance_thresh: 0.25
- 
-  with_reid: False
-  fast_reid_config: fast_reid/configs/MOT17/sbs_S50.yml
-  fast_reid_weights: pretrained/mot17_sbs_S50.pth
+  device: ''
+  fast_reid_config: fast_reid/configs/Market1501/sbs_S50.yml
+  fast_reid_weights: fast_reid/pretrained/market_bot_S50.pth
 
   #gmc
   cmc_method: "sparseOptFlow"
@@ -183,17 +182,19 @@ Pose2D:
 
 
 Detector:
-  tracking: False
+  tracking: True
   detector: "yolov7"
   detbatch: 5
-  detect_classes: [0]
+  detect_classes: [0] #filter class
   INP_DIM: 640
-  NMS_THRES:  0.3
+  NMS_THRES:  0.5
   CONFIDENCE:  0.75
   NUM_CLASSES:   80
+  CLASS_CANDIDATE_NUM: 5 
   CONFIG: 'detector/yolo/cfg/yolov3-spp.cfg'
   WEIGHTS: 'detector/yolo/data/yolov3-spp.weights'
   weights: './libs/detector/yolov7/data/yolov7.pt'
+  min_box_area: 10
   augment: False
   exist_ok: False
   trace: True

@@ -15,8 +15,8 @@ def get_detector(opt=None):
         return YOLODetector(cfg, opt)
     elif opt.detector == 'yolov7':
         from libs.detector.yolov7_api import YOLODetector
-        from libs.detector.yolov7_cfg import cfg
-        return YOLODetector(cfg, opt)
+        # from libs.detector.yolov7_cfg import cfg
+        return YOLODetector(None, opt)
     elif 'yolox' in opt.detector:
         from libs.detector.yolox_api import YOLOXDetector
         from libs.detector.yolox_cfg import cfg

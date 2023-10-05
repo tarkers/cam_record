@@ -15,8 +15,7 @@ from torch.backends import cudnn
 
 sys.path.append('.')
 
-# from fast_reid.fastreid.evaluation import evaluate_rank
-from fast_reid.fastreid.evaluation.rank import evaluate_rank
+from fast_reid.fastreid.evaluation import evaluate_rank
 from fast_reid.fastreid.config import get_cfg
 from fast_reid.fastreid.utils.logger import setup_logger
 from fast_reid.fastreid.data import build_reid_test_loader
@@ -102,18 +101,6 @@ def get_parser():
 
 if __name__ == '__main__':
     args = get_parser().parse_args()
-
-    # ------------------------------------------------------------------------------------------------------------------
-    # train_data = 'DukeMTMC'
-    # method = 'sbs_S50'  # bagtricks_S50 | sbs_S50
-    # seq = 'MOT20-02'
-    # args.dataset_name = seq
-    # args.config_file = r'../configs/' + train_data + '/' + method + '.yml'
-    # args.input = [r'/home/nir/Datasets/MOT20/train/' + seq + '/img1', '*.jpg']
-    # args.output = seq + '_' + method + '_' + train_data
-    # args.opts = ['MODEL.WEIGHTS', '../pretrained/duke_bot_S50.pth']
-    # ------------------------------------------------------------------------------------------------------------------
-
     cfg = setup_cfg(args)
     test_loader, num_query = build_reid_test_loader(cfg, dataset_name=args.dataset_name)
     demo = FeatureExtractionDemo(cfg, parallel=args.parallel)
