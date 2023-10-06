@@ -20,9 +20,11 @@ class webCamDetectQueue:
     """
 
     def __init__(self, input_source, cfg, detector=None, tracker=None, queueSize=150):
-        stream = cv2.VideoCapture(int(input_source))
+        stream = cv2.VideoCapture(r"person_walking.mp4")    #test
+        # stream = cv2.VideoCapture(int(input_source))
         assert stream.isOpened(), "Cannot capture source"
-        self.path = input_source
+
+        self.path = r"person_walking.mp4"
         self.cfg = cfg
         self.pause_stream = False
         self.detector = detector
@@ -159,7 +161,7 @@ class webCamDetectQueue:
                     (img_k, orig_img, im_name, im_dim_list_k)
                 )
                 self.image_postprocess(img_det)
-                
+                cv2.waitKey(30)
             else:
                 print("webcam is full")
                 

@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     cfg = update_config(r"libs\configs\configs.yaml")
     pose_cfg = update_config(r"libs\configs\configs.yaml").Pose2D
-    # pose3d_cfg = update_config(r"libs\configs\configs.yaml").Pose3D
+    pose3d_cfg = update_config(r"libs\configs\configs.yaml").Pose3D
     tracker_cfg = update_config(r"libs\configs\configs.yaml").TRACKER
     
     pose_cfg.mode="webcam"
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     
     q = webCamDetectQueue(0, test, get_detector(test),tracker)
     poseq=Pose2DQueue(pose_cfg)
-    #pose3q=Pose3DQueue(pose3d_cfg)
+    pose3q=Pose3DQueue(pose3d_cfg)
     print("Starting webcam demo, press Ctrl + C to terminate...")
     sys.stdout.flush()
     im_names_desc = loop()
@@ -66,14 +66,14 @@ if __name__ == "__main__":
     q_thread=q.start()
     
     yn=q.yolo_classes
-    # pose3q.start()
-    time.sleep(2)
+    pose3q_thread=pose3q.start()
+    time.sleep(5)
     pose_thread=poseq.start()
     time.sleep(8)
     
     ## test  write  datas
     tmp=[]
-    
+    is_finish=False
     for i in im_names_desc:
         # if q._stopped:
         #     poseq.terminate()
@@ -105,7 +105,7 @@ if __name__ == "__main__":
                 pose2D=None
                 t_orig_img=None
             ## test run 3D POSE###
-            # pose3q.run_3D_pose(pose2D)
+            pose3q.read(pose2D)
             
 
             # test=inps[0]
@@ -126,6 +126,7 @@ if __name__ == "__main__":
                 if key == ord('q') or key == 27: # Esc
                     q.terminate()
                     poseq.terminate()
+                    pose3q.terminate()
                     cv2.destroyAllWindows()
                     break
             elif t_orig_img is not None:
@@ -136,6 +137,7 @@ if __name__ == "__main__":
                 if key == ord('q') or key == 27: # Esc
                     q.terminate()
                     poseq.terminate()
+                    pose3q.terminate()
                     cv2.destroyAllWindows()
                     break
             if cropped_boxes is not None:
@@ -145,7 +147,7 @@ if __name__ == "__main__":
                 if key == ord('q') or key == 27: # Esc
                     q.terminate()
                     poseq.terminate()
-                    # pose3q.terminate()
+                    pose3q.terminate()
                     cv2.destroyAllWindows()
                     break
             else:
@@ -154,21 +156,30 @@ if __name__ == "__main__":
                 if key == ord('q') or key == 27: # Esc
                     q.terminate()
                     poseq.terminate()
-                    # pose3q.terminate()
+                    pose3q.terminate()
                     cv2.destroyAllWindows()
                     break
             # print(scores)
-        if i > 100:
+        if i > 250:
+            is_finish=True
             print("out of bound!")
             q.terminate()
             poseq.terminate()
+            pose3q.terminate()
             cv2.destroyAllWindows()
             break
-    print("stop thread")
+    if not is_finish:
+        print("stop thread")
+        q.terminate()
+        poseq.terminate()
+        pose3q.terminate()
+        cv2.destroyAllWindows()
     q_thread[0].terminate()
     q_thread[0].join()
     pose_thread[0].terminate()
     pose_thread[0].join()
+    pose3q_thread[0].terminate()
+    pose3q_thread[0].join()
     # if len(tmp):
     #     with open('data.json', 'w') as f:
     #         json.dump(data, f)

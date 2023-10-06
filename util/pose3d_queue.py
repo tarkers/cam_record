@@ -20,7 +20,7 @@ class Pose3DQueue:
     generate pose queue
     """
 
-    def __init__(self, cfg=None,queueSize=0):
+    def __init__(self, cfg=None,queueSize=250):
         self.cfg = cfg
         self.all_results=[]
         self.pause_stream=False
@@ -35,7 +35,39 @@ class Pose3DQueue:
             self._stopped = mp.Value("b", False)
             self.queue = mp.Queue(maxsize=queueSize)
         
-            
+    def write_pose_json(self,all_results,for_eval=True):
+        json_results = []
+        for im_res in all_results:
+            im_name = im_res['imgname']
+            for human in im_res['result']:
+                keypoints = []
+                result = {}
+                if for_eval:
+                    result['image_id'] = int(os.path.basename(im_name).split('.')[0].split('_')[-1])
+                else:
+                    result['image_id'] = os.path.basename(im_name)
+                result['category_id'] = 1
+                print(human['idx'])
+                print(human['class_id'])
+                kp_preds = human['keypoints']
+                kp_scores = human['kp_score']
+                pro_scores = human['proposal_score']
+                for n in range(kp_scores.shape[0]):
+                    keypoints.append(float(kp_preds[n, 0]))
+                    keypoints.append(float(kp_preds[n, 1]))
+                    keypoints.append(float(kp_scores[n]))
+                result['keypoints'] = keypoints
+                result['idx'] = int(human['idx'])
+                result['class_id'] = int(human['class_id'])
+                result['score'] = float(pro_scores)
+                if 'box' in human.keys():
+                    result['box'] = human['box']
+                    
+                json_results.append(result)
+                    
+        with open("test.json", 'w') as json_file:
+            json_file.write(json.dumps(json_results))
+        self.stop()            
         
     
     def load_model(self):
@@ -81,9 +113,9 @@ class Pose3DQueue:
 
     def stop(self):
         # indicate that the thread should be stopped
-        self.save(None, None, None, None, None, None, None)
-        self.pose_worker.join()
-
+        # self.save(None, None, None, None, None, None, None)
+        # self.pose_worker.join()
+        pass
 
 
     def terminate(self):
@@ -125,19 +157,27 @@ class Pose3DQueue:
             if not self.queue.full() and not self.pause_stream: 
                 # inps=self.wait_and_get(self.queue)
                 data=self.wait_and_get(self.queue)
-                print(data)
+                if data is not None and data['imgname'] is not None:
+                    pose_queue.append(data)
+                if len(pose_queue)>15:
+                    datas=pose_queue.copy()
+                    # print(datas.keys())
+                    pose_queue=[]
+                    self.run_3D_pose(datas)
                 # all_results.append(data)
                 
                 # wild_dataset = PoseDataset(json, clip_len=opts.clip_len, scale_range=[1,1], focus=opts.focus)
                 # test_loader = DataLoader(wild_dataset, **testloader_params)
                 # self.read()
                 # self.run_3D_pose()
+        print("write data")
+        self.write_pose_json(pose_queue)
     
     def extract_specific_id(self):
         pass
         
     def run_3D_pose(self,wild_dataset,for_eval=True):
-        print(wild_dataset)
+        # print(wild_dataset)
         return
         # if not wild_dataset:
         #     return

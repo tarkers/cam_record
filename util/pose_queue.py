@@ -151,7 +151,7 @@ class Pose2DQueue:
                     #     inps,
                     #     orig_img,   
                     #     im_name,
-                    #     object_ids,
+                    #     class_ids,
                     #     boxes,
                     #     scores,
                     #     ids,
@@ -161,7 +161,7 @@ class Pose2DQueue:
                     #     self.pose_estimation(inps,
                     #     orig_img,   
                     #     im_name,
-                    #     object_ids,
+                    #     class_ids,
                     #     boxes,
                     #     scores,
                     #     ids,
@@ -171,7 +171,7 @@ class Pose2DQueue:
                 else:
                     print("pose is full")
     def pose_estimation(self,item):
-        (inps,orig_img, im_name,object_ids,
+        (inps,orig_img, im_name,class_ids,
                         boxes,
                         scores,
                         ids,
@@ -242,7 +242,7 @@ class Pose2DQueue:
         boxes, scores, ids, preds_img, preds_scores, pick_ids = \
             pose_nms(boxes, scores, ids, preds_img, preds_scores, self.cfg.min_box_area, use_heatmap_loss=self.use_heatmap_loss)
         
-        
+        # print(ids,)
         ## perpare resultes
         _result = []
         for k in range(len(scores)):
@@ -252,6 +252,7 @@ class Pose2DQueue:
                     'kp_score':preds_scores[k],
                     'proposal_score': torch.mean(preds_scores[k]) + scores[k] + 1.25 * max(preds_scores[k]),
                     'idx':ids[k],
+                    'class_id':class_ids[k],
                     'box':[boxes[k][0], boxes[k][1], boxes[k][2]-boxes[k][0],boxes[k][3]-boxes[k][1]] 
                 }
             )
@@ -260,15 +261,10 @@ class Pose2DQueue:
             'imgname': im_name,
             'result': _result
         }
-        ### this is for tracking ####
-        # if self.opt.pose_flow:
-        #     poseflow_result = self.pose_flow_wrapper.step(orig_img, result)
-        #     for i in range(len(poseflow_result)):
-        #         result['result'][i]['idx'] = poseflow_result[i]['idx']
-        ######
-        
-        #put result in pose_queue
-        self.wait_and_put(self.pose_queue,(result,orig_img))
+
+        if scores:
+            #put result in pose_queue
+            self.wait_and_put(self.pose_queue,(result,orig_img))
         
         return
 
