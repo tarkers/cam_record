@@ -20,11 +20,11 @@ class webCamDetectQueue:
     """
 
     def __init__(self, input_source, cfg, detector=None, tracker=None, queueSize=150):
-        stream = cv2.VideoCapture(r"person_walking.mp4")    #test
+        stream = cv2.VideoCapture(r"person_walking_short.mp4")    #test
         # stream = cv2.VideoCapture(int(input_source))
         assert stream.isOpened(), "Cannot capture source"
 
-        self.path = r"person_walking.mp4"
+        self.path = r"person_walking_short.mp4"
         self.cfg = cfg
         self.pause_stream = False
         self.detector = detector
@@ -37,7 +37,7 @@ class webCamDetectQueue:
             int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT)),
         )
         self.videoinfo = {"fourcc": fourcc, "fps": fps, "frameSize": frameSize}
-        print(self.videoinfo)
+        # print(self.videoinfo)
         stream.release()
 
         self._input_size = cfg.DATA_PRESET.IMAGE_SIZE
@@ -60,82 +60,72 @@ class webCamDetectQueue:
         """
         if self.cfg.sp:
             self._stopped = False
-            self.pose_queue = Queue(maxsize=queueSize)
+            # self.queue = Queue(maxsize=queueSize)
         else:
             self._stopped = mp.Value("b", False)
-            self.pose_queue = mp.Queue(maxsize=queueSize)
+            # self.queue = mp.Queue(maxsize=queueSize)
 
-    def start_worker(self, target):
+    def start_worker(self, target,queue):
         if self.cfg.sp:
-            p = Thread(target=target, args=())
+            p = Thread(target=target, args=(queue,))
             
         else:
-            p = mp.Process(target=target, args=())
+            p = mp.Process(target=target, args=(queue,))
 
         # p.daemon = True
         p.start()
         
         return p
 
-    def start(self):
+    def start(self,queue):
         """
         start a thread to pre process images for object detection
         """
-        image_preprocess_worker = self.start_worker(self.frame_preprocess)
+        image_preprocess_worker = self.start_worker(self.detector_process,queue)
         return [image_preprocess_worker]
 
-    def stop(self):
-        # clear queues
-        self.clear_queues()
+
 
     def terminate(self):
+        '''
+        set the stopped to true and left None to image
+        '''
+        print("bounding box termination")
         if self.cfg.sp:
             self._stopped = True
         else:
             self._stopped.value = True
-        print("detect termination")
-        self.stop()
+               
 
-    def clear_queues(self):
-        self.clear(self.pose_queue)
 
     def clear(self, queue):
         while not queue.empty():
-            print(queue.qsize())
             queue.get()
 
-    def wait_and_put(self, queue, item):
-        if not self.stopped:
-            queue.put(item)
 
-    def wait_and_get(self, queue):
-        if not self.stopped:
-            return queue.get()
 
-    def frame_preprocess(self):
+    def detector_process(self,queue):
+        # self.queue =queue
         stream = cv2.VideoCapture(self.path)
         assert stream.isOpened(), "Cannot capture source"
         frame_idx = 0
         self.tracker.init_fastreid() #load for thread
-        # keep looping infinitely
-        for i in count():
+       
+         # keep looping infinitely
+        for _ in count():
             if self.stopped:
                 print("detect queue is stopped!!")       
                 stream.release()
-                return
-            # if self.pose_queue.full():
-            #     self.pause_stream=True
-            #     continue
-            # else:
-            #     self.pause_stream=False
+                break
             if (
-                not self.pose_queue.full() and not self.pause_stream
+                not queue.full() and not self.pause_stream
             ):  # make sure queue has empty place
                 (grabbed, frame) = stream.read()
-
+                
                 if not grabbed:
+                    print("Finish streaming images!")
                     stream.release()
-                    return
+                    break
 
                 # expected frame shape like (1,3,h,w) or (3,h,w)
                 img_k = self.detector.image_preprocess(
@@ -154,16 +144,30 @@ class webCamDetectQueue:
                 im_name = str(frame_idx) + ".jpg"
                 frame_idx += 1
                 
-                with torch.no_grad():
-                    # Record original image resolution
+                with torch.no_grad(): # Record original image resolution
                     im_dim_list_k = torch.FloatTensor(im_dim_list_k).repeat(1, 2)
                 img_det = self.image_detection(
                     (img_k, orig_img, im_name, im_dim_list_k)
                 )
-                self.image_postprocess(img_det)
-                cv2.waitKey(30)
+                item =self.image_postprocess(img_det)
+                # print("BOX Put: ",im_name,flush=True)
+                queue.put(item)
+                
+                
+                # # test terminate code
+                # if frame_idx >10:
+                #     print("Finish streaming images!")
+                #     stream.release()
+                #     break
+                # cv2.waitKey(30)
             else:
                 print("webcam is full")
+
+        ## put terminate data ###
+        queue.put((None, None, None, None, None, None, None, None))
+        print("BOX PUT:",'terminate') 
+        self.terminate()
+       
                 
     def image_detection(self, inputs):
         """
@@ -175,7 +179,7 @@ class webCamDetectQueue:
         cls_score:dets [:,7]
         """
         img, orig_img, im_name, im_dim_list = inputs
-        if img is None or self.stopped:
+        if img is None or self.stopped: 
             return (None, None, None, None, None, None, None, None)
 
         with torch.no_grad():
@@ -186,8 +190,7 @@ class webCamDetectQueue:
             dets = dets.cpu()
             if isinstance(dets, torch.FloatTensor):
                 dets = torch.Tensor.numpy(dets)
-            # (boxes, ids, scores, class_ids) = \
-            #         self.tracker_udpate(dets[:, 1:], orig_img) 
+                
             if self.cfg.tracking:
                 (boxes, ids, scores, class_ids) = \
                     self.tracker_udpate(dets[:, 1:], orig_img) 
@@ -195,7 +198,7 @@ class webCamDetectQueue:
                 class_ids = dets[:, 6] 
                 boxes = dets[:, 1:5]
                 scores = dets[:, 5:6]
-                ids = np.zeros(scores.shape)
+                ids = torch.zeros(scores.shape)
 
         if isinstance(boxes, int) or boxes.size(0) == 0:
             return (orig_img, im_name, None, None, None, None, None, None)
@@ -225,7 +228,7 @@ class webCamDetectQueue:
                 online_ids.append(t.track_id)
                 online_scores.append(t.score)
                 online_cls.append(int(t.cls))
-                
+
         # if have bbox then change to tesor      
         if len(online_tlwhs):
             online_tlwhs = torch.from_numpy(bbox_xywh_to_xyxy(np.array(online_tlwhs)))
@@ -236,8 +239,7 @@ class webCamDetectQueue:
         online_cls= torch.FloatTensor(online_cls)
         return (online_tlwhs, online_ids, online_scores, online_cls)
         
-        # new_hm = torch.Tensor(new_hm).to(args.device)
-        # return new_boxes,new_scores,new_ids,new_hm,new_crop
+
         
     def image_postprocess(self, inputs):
         with torch.no_grad():
@@ -253,29 +255,25 @@ class webCamDetectQueue:
             ) = inputs
 
             if orig_img is None or self.stopped:  # no  image
-                # print("no frame found!")
-                self.wait_and_put(
-                    self.pose_queue, (None, None, None, None, None, None, None, None)
-                )
+                # self.wait_and_put(
+                #     self.queue, (None, None, None, None, None, None, None, None)
+                # )
+                return (None, None, None, None, None, None, None, None)
+            
+            if boxes is None or boxes.nelement() == 0:  # no detect object
+                # self.wait_and_put(
+                #     self.queue,
+                #     (None, orig_img, im_name, class_ids, boxes, scores, ids, None),
+                # )
 
-                return
-            if boxes is None or boxes.nelement() == 0:  # no  detect object
-                # print("no box detected!")
-                self.wait_and_put(
-                    self.pose_queue,
-                    (None, orig_img, im_name, class_ids, boxes, scores, ids, None),
-                )
-
-                return
+                return  (None, orig_img, im_name, class_ids, boxes, scores, ids, None)
 
             # print("detect!")
             for i, box in enumerate(boxes):
                 inps[i], cropped_box = self.transformation.test_transform(orig_img, box)
                 cropped_boxes[i] = torch.FloatTensor(cropped_box)
 
-            self.wait_and_put(
-                self.pose_queue,
-                (
+            return   (
                     inps,
                     orig_img,
                     im_name,
@@ -284,8 +282,20 @@ class webCamDetectQueue:
                     scores,
                     ids,
                     cropped_boxes,
-                ),
-            )
+                )
+            # self.wait_and_put(
+            #     self.queue,
+            #     (
+            #         inps,
+            #         orig_img,
+            #         im_name,
+            #         class_ids,
+            #         boxes,
+            #         scores,
+            #         ids,
+            #         cropped_boxes,
+            #     ),
+            # )
 
     def read(self):
         '''
@@ -299,7 +309,7 @@ class webCamDetectQueue:
             ids: ids for tracker
             cropped_boxes: list of new box coordinates
         '''
-        return self.wait_and_get(self.pose_queue)
+        return self.wait_and_get(self.queue)
 
     @property
     def stopped(self):
