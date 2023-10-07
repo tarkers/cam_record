@@ -342,6 +342,7 @@ def pose_nms_body(bboxes, bbox_scores, bbox_ids, pose_preds, pose_scores, areaTh
         res_pose_preds.append(merge_pose)
         res_pose_scores.append(merge_score)
         res_pick_ids.append(pick[j])
+
     return res_bboxes, res_bbox_scores, res_bbox_ids, res_pose_preds, res_pose_scores, res_pick_ids
 
 def pose_nms_fullbody(bboxes, bbox_scores, bbox_ids, pose_preds, pose_scores, areaThres=0):

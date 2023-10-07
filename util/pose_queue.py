@@ -73,21 +73,21 @@ class Pose2DQueue:
         self.model.eval()
         
         
-    def start_worker(self, target,box_queue,pose_queue):
+    def start_worker(self, target):
        
         if self.cfg.sp:
-            p = Thread(target=target, args=(box_queue,pose_queue))
+            p = Thread(target=target, args=())
         else:
-            p = mp.Process(target=target, args=(box_queue,pose_queue))
+            p = mp.Process(target=target, args=())
         # p.daemon = True
         p.start()
         return p
 
-    def start(self,box_queue,pose_queue):
+    def start(self):
         """
         start a thread to  process  pose estimation
         """
-        image_preprocess_worker = self.start_worker(self.image_process,box_queue,pose_queue)
+        image_preprocess_worker = self.start_worker(self.image_process)
         return [image_preprocess_worker]
 
     def stop(self):
@@ -95,13 +95,13 @@ class Pose2DQueue:
         self.clear_queues()
 
     def terminate(self):
-        ##wait##
+        
         if self.cfg.sp:
             self._stopped = True
         else:
             self._stopped.value = True
         print("pose termination")
-        # self.stop()
+        self.stop()
 
     def clear_queues(self):
         self.clear(self.box_queue)
@@ -126,32 +126,27 @@ class Pose2DQueue:
         if not self.stopped and not queue.empty():
             return queue.get()
 
-    def image_process(self,box_queue,pose_queue):
-        # box_queue,pose_queue=args
+    def image_process(self):
         if not self.model:
             self.load_model()
+        
         # keep looping infinitely
         with torch.no_grad():
             while True:
                 if self.stopped:
                     print("pose queue is stopped!!")
                     return
-
-                if not box_queue.full() and not self.pause_stream: 
-                    # inps=self.wait_and_get(self.box_queue)
-                    item=box_queue.get()
-                    if item is not None :
-                        if item[0] ==None:  # bbox queue is empty
-                            print("bbox queue is empty")
-                            break
-                        # print("BOX GET:",item[2],flush=True)
-                    else:
-                        continue
+                if self.box_queue.empty():
+                    continue
+                
+                if not self.box_queue.full() and not self.pause_stream: 
                     
-
-                    (im_name,result)=self.pose_estimation(item) # (im_name,result)
-                    pose_queue.put((im_name,result))
-                    # print("POSE PUT:",im_name,flush=True)
+                    # inps=self.wait_and_get(self.box_queue)
+                    item=self.wait_and_get(self.box_queue)
+                    if item[0] is not None:
+                        self.pose_estimation(item)
+                    else:
+                        self.wait_and_put(self.pose_queue,(None,item[1]))
                     # (
                     #     inps,
                     #     orig_img,   
@@ -175,12 +170,6 @@ class Pose2DQueue:
                     #     pass
                 else:
                     print("pose is full")
-            ## put terminate data for pose queue###
-            print("terminate pose queue")
-            self.terminate()
-            pose_queue.put((None,None))
-            print("POSE PUT:",'terminate ')
-            
     def pose_estimation(self,item):
         (inps,orig_img, im_name,class_ids,
                         boxes,
@@ -252,8 +241,8 @@ class Pose2DQueue:
         preds_scores = torch.cat(pose_scores)
         boxes, scores, ids, preds_img, preds_scores, pick_ids = \
             pose_nms(boxes, scores, ids, preds_img, preds_scores, self.cfg.min_box_area, use_heatmap_loss=self.use_heatmap_loss)
-
-
+        
+        # print(ids,)
         ## perpare resultes
         _result = []
         for k in range(len(scores)):
@@ -264,7 +253,7 @@ class Pose2DQueue:
                     'proposal_score': torch.mean(preds_scores[k]) + scores[k] + 1.25 * max(preds_scores[k]),
                     'idx':ids[k],
                     'class_id':class_ids[k],
-                    'box':[boxes[k][0], boxes[k][1], boxes[k][2]-boxes[k][0],boxes[k][3]-boxes[k][1]] ,
+                    'box':[boxes[k][0], boxes[k][1], boxes[k][2]-boxes[k][0],boxes[k][3]-boxes[k][1]] 
                 }
             )
 
@@ -274,10 +263,10 @@ class Pose2DQueue:
         }
 
         if scores:
-            return (im_name,result) 
-        else:
-            return (im_name,None)  #not have pose for the bounding box
+            #put result in pose_queue
+            self.wait_and_put(self.pose_queue,(result,orig_img))
         
+        return
 
     
 
