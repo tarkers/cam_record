@@ -140,39 +140,17 @@ class Pose2DQueue:
                 if not box_queue.full() and not self.pause_stream: 
                     # inps=self.wait_and_get(self.box_queue)
                     item=box_queue.get()
-                    if item is not None :
-                        if item[0] ==None:  # bbox queue is empty
-                            print("bbox queue is empty")
-                            break
-                        # print("BOX GET:",item[2],flush=True)
-                    else:
+                    if item is  None :
                         continue
+                    if item[0] ==None:  # bbox queue is empty
+                        print("bbox queue is empty")
+                        break
+                    # print("BOX GET:",item[2],flush=True)
                     
 
-                    (im_name,result)=self.pose_estimation(item) # (im_name,result)
-                    pose_queue.put((im_name,result))
-                    # print("POSE PUT:",im_name,flush=True)
-                    # (
-                    #     inps,
-                    #     orig_img,   
-                    #     im_name,
-                    #     class_ids,
-                    #     boxes,
-                    #     scores,
-                    #     ids,
-                    #     cropped_boxes,
-                    # )=self.wait_and_get(self.box_queue)
-                    # if inps is not None:
-                    #     self.pose_estimation(inps,
-                    #     orig_img,   
-                    #     im_name,
-                    #     class_ids,
-                    #     boxes,
-                    #     scores,
-                    #     ids,
-                    #     cropped_boxes,)
-                    # else:
-                    #     pass
+                    (orig_img,result)=self.pose_estimation(item) # (im_name,result)
+                    pose_queue.put((orig_img,result))
+                    # print("POSE PUT:",result['imgname'],flush=True)
                 else:
                     print("pose is full")
             ## put terminate data for pose queue###
@@ -274,16 +252,16 @@ class Pose2DQueue:
         }
 
         if scores:
-            return (im_name,result) 
+            return (orig_img,result) 
         else:
-            return (im_name,None)  #not have pose for the bounding box
+            return (orig_img,None)  #not have pose for the bounding box
         
 
     
 
         
     # def write_temp_files(self, inputs):
-    #     '''
+    #     '''frame, im_res,showbox=True,tracking=False
     #     writer save to temp_files 
     #     '''
     #     _result = []

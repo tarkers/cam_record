@@ -15,4 +15,6 @@ libs/pose2D/models/halpe26_fast_res50_256x192.pth
 Pose3D/lib/model/FT_MB_lite_MB_ft_h36m_global_lite.bin
 remind.txt
 ./fast_reid/pretrained/pretrained/*
+Test
+*.mp4
 

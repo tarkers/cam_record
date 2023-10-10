@@ -16,5 +16,17 @@ class Timer(object):
         self.end_time=time.time()
         pass
     
-    def get_time_interval(self):
+    
+    @property
+    def time_interval(self):
+        '''
+        This gives the execution time in seconds
+        '''
         return self.end_time-self.start_time
+    
+    @property
+    def fps(self):
+        '''
+        This gives the execution time in seconds
+        '''
+        return round(1/(self.end_time-self.start_time))

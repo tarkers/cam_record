@@ -10,21 +10,40 @@ from torch.utils.data import DataLoader
 import torch.multiprocessing as mp
 import torch.nn as nn
 from tqdm import tqdm
-## our folder##
+import pathlib
+
+# # our folder##
 from Pose3D.lib.utils.tools import *
 from Pose3D.lib.utils.learning import load_backbone
 from Pose3D.lib.utils.utils_data import flip_data
+from libs.vis import plot_boxes, plot_2d_skeleton
+
 
 class WriterDQueue:
     """
     generate writer queue
     """
 
-    def __init__(self, cfg=None,queueSize=500):
+    def __init__(self, cfg=None, video_info=None, store_path='./', store_video=True, queueSize=500):
         self.cfg = cfg
-        self.all_results=[]
-        self.pause_stream=False
+        self.all_results = []
+        self.pause_stream = False
+        self.store_video = store_video
+        self.video_info = video_info
+        self.video_base_name = {
+            'base':self.video_info['name'].rsplit('.')[0],
+            'ext':self.video_info['name'].rsplit('.')[1]
+        }
+        store_folder = rf"{store_path}\{self.video_base_name['base']}"
         
+        if self.cfg.write_skeleton:
+            self.folder_path = rf"{store_folder}\subject_2D"
+        else:
+            self.folder_path = rf"{store_folder}\bbox"
+            
+        # create data folder
+        p = pathlib.Path(self.folder_path)
+        p.mkdir(parents=True, exist_ok=True)  
 
         if cfg.sp:
             self._stopped = False
@@ -32,30 +51,44 @@ class WriterDQueue:
         else:
             self._stopped = mp.Value("b", False)
             self.queue = mp.Queue(maxsize=queueSize)
+    
+    def write_2D_id_pose_json(self, for_eval=True):
+       
+        focus_ids = {}
+        # get results json 
+        f = open(rf"{self.folder_path}\results.json")
+        results = json.load(f)
         
-    def write_2D_id_pose_json(self,results,folder_path,for_eval=True):
-        focus_ids={}
         for item in results:
-            new_data={"image_id":item['image_id'],
+            new_data = {"image_id":item['image_id'],
                                         'keypoints':item['keypoints'],
                                         'box':item['box'],
-                                        'score':item['score']
-                                        }
+                                        'score':item['score']}
             if item['idx'] not in focus_ids:
-                focus_ids[item['idx']] =[new_data]
+                focus_ids[item['idx']] = [new_data]
             else:
                 focus_ids[item['idx']].append(new_data)
-        #save json by id    
-        for id in focus_ids:
-            with open(rf"{folder_path}\subject_2D\{id}.json", 'w') as json_file:
-                json_file.write(json.dumps(focus_ids[id]))
-                
-    def write_2D_pose_json(self,all_results,for_eval=True):
+        
+        # create data folder
+        id_path=self.folder_path+"\ids"
+        p = pathlib.Path(id_path)
+        p.mkdir(parents=True, exist_ok=True)
+        # save json by id    
+        for _id in focus_ids:
+            test = [ t['image_id'] for t in  focus_ids[_id]]
+            results = {
+                'results':focus_ids[_id],
+                'frame_list':test
+            }
+            with open(rf"{id_path}\{_id}.json", 'w') as json_file:
+                json_file.write(json.dumps(results))
+                    
+    def write_2D_pose_json(self, all_results, for_eval=True):
         '''
         write who ids in a result files
         '''
         json_results = []
-        tracklet={'tracklet':[]}
+        tracklet = {'tracklet':[]}
         for im_res in all_results:
             im_name = im_res['imgname']
             for human in im_res['result']:
@@ -74,11 +107,14 @@ class WriterDQueue:
                     keypoints.append(float(kp_preds[n, 1]))
                     keypoints.append(float(kp_scores[n]))
                 result['keypoints'] = keypoints
-                try:
-                    result['idx'] = int(human['idx'])
-                except TypeError:
-                    result['idx'] = int(human['idx'][0])
-                    tracklet['tracklet'].append([int(x) for x in human['idx']])              
+                if 'idx'  in result:
+                    try:
+                        result['idx'] = int(human['idx'])
+                    except TypeError:
+                        result['idx'] = int(human['idx'].sort()[0])
+                        tracklet['tracklet'].append([int(x) for x in human['idx']]) 
+                else:
+                    result['idx'] = None        
 
                 result['class_id'] = int(human['class_id'])
                 result['score'] = float(pro_scores)
@@ -86,34 +122,59 @@ class WriterDQueue:
                     result['box'] = human['box']
                     
                 json_results.append(result)
-                    
-        with open("results.json", 'w') as json_file:
+ 
+        with open(rf"{self.folder_path}\results.json", 'w') as json_file:
             json_file.write(json.dumps(json_results))
             
-        with open("tracklet.json", 'w') as json_file:
+        with open(rf"{self.folder_path}\tracklet.json", 'w') as json_file:
             json_file.write(json.dumps(tracklet))
         self.stop()            
-        
     
-    
+    def write_bbox_json(self, data):
+        for item in data:
+            tmp_bbox = []
+            tmp_cropped = []
+            boxes = item['boxes']
+            cropped_boxes = item['cropped_boxes']
+            for i in range(len(boxes)):
+                tmp_bbox.append(boxes[i].tolist())
+                tmp_cropped.append(cropped_boxes[i].tolist())
+            if not self.cfg.write_tracking:
+                del item['ids']
+            else:
+                item['ids'] = item['ids'].tolist()
+            item['boxes'] = tmp_bbox
+            item['cropped_boxes'] = tmp_cropped
+            item['scores'] = torch.flatten(item['scores']).tolist()
+            item['class_ids'] = torch.flatten(item['class_ids']).tolist()
+            item['boxes'] = tmp_bbox
+
+        # # create data folder
+        p = pathlib.Path(self.folder_path)
+        p.mkdir(parents=True, exist_ok=True)   
+        print(rf"Save bbox json to :{self.folder_path}\bbox_results.json")
+        with open(rf"{self.folder_path}\bbox_results.json", 'w') as json_file:
+            json_file.write(json.dumps(data))
+        pass
         
-        
-        
-    def start_worker(self, target,pose_queue):
+    def start_worker(self, target, data_queue):
        
         if self.cfg.sp:
-            p = Thread(target=target, args=(pose_queue,))
+            p = Thread(target=target, args=(data_queue,))
         else:
-            p = mp.Process(target=target, args=(pose_queue,))
+            p = mp.Process(target=target, args=(data_queue,))
         # p.daemon = True
         p.start()
         return p
 
-    def start(self,pose_queue):
+    def start(self, data_queue):
         """
         start a thread to  process  pose estimation
         """
-        self.writer_worker = self.start_worker(self.joints_process,pose_queue)
+        if self.cfg.write_skeleton:
+            self.writer_worker = self.start_worker(self.write_skeletons_data, data_queue)
+        else:
+            self.writer_worker = self.start_worker(self.write_bbox_data, data_queue)
         return [ self.writer_worker ]
 
     def stop(self):
@@ -122,14 +183,12 @@ class WriterDQueue:
         # self.writer_worker.join()
         pass
 
-
     def terminate(self):
         if self.cfg.sp:
             self._stopped = True
         else:
             self._stopped.value = True
         print("write termination")
-        
 
     def clear_queues(self):
         self.clear(self.queue)
@@ -138,7 +197,7 @@ class WriterDQueue:
         while not queue.empty():
             queue.get()
 
-    def read(self,  item):
+    def read(self, item):
         self.wait_and_put(self.queue, item)
         
     def wait_and_put(self, queue, item):
@@ -148,77 +207,123 @@ class WriterDQueue:
     def wait_and_get(self, queue):
         if not self.stopped:
             return queue.get()
-
-    def joints_process(self,pose_queue):
-
-        data_store=[]
+    
+    def set_up_video(self):
+        fourcc, ext = self.recognize_video_ext(self.video_base_name["ext"])
+        if self.video_info is not None:
+            video_base = rf'{self.folder_path}/b_{self.video_base_name["base"]}'
+            if self.cfg.write_skeleton:
+                video_base = rf'{self.folder_path}/s_{self.video_base_name["base"]}'   
+            if self.cfg.write_tracking:
+                video_base = video_base + "_i"
+            video_path = video_base + ext
+                
+        video_writer = cv2.VideoWriter(video_path, fourcc, self.video_info['fps'], self.video_info['frameSize'])
+        print("Video Stored: ", video_path)
+        return video_writer
+    
+    def write_bbox_data(self, data_queue):
+        if self.store_video:
+            video_writer = self.set_up_video()
+        data_store = []
         while True:
             if self.stopped:
                 break
-            if pose_queue.empty():
+            if data_queue.empty():
                 continue
             
-            if not pose_queue.full() and not self.pause_stream: 
+            if not self.pause_stream: 
                 # inps=self.wait_and_get(self.queue)
-                item=pose_queue.get()
+                item = data_queue.get()
+                if item is  None:
+                        continue
+                if item[0] == None:  # bbox queue is empty
+                    print("bbox queue is finish")
+                    break
+                (
+                    _,  # inps
+                    orig_img,
+                    im_name,
+                    class_ids,
+                    bbox,  # bbox
+                    scores,
+                    ids,
+                    cropped_boxes,  # cropped boxeds for pose estimation
+                ) = item
+                data_store.append({
+                'image_id':im_name,
+                'boxes':bbox,
+                'cropped_boxes':cropped_boxes,
+                'scores':scores,
+                'class_ids':class_ids,
+                'ids':ids })
+                print("BOX GET:",im_name,flush=True)
+                if self.store_video: 
+                        # writ to video frame
+                    if self.cfg.write_tracking:
+                        img = plot_boxes(orig_img, bbox, ids, None)
+                        
+                    else:
+                        img = plot_boxes(orig_img, bbox, None, None)
+                    video_writer.write(img)
+                    # print("frame count:", im_name)  
+        if self.store_video:
+            video_writer.release()        
+
+        print("start writing bbox json data")
+        if self.cfg.write_box:
+            self.write_bbox_json(data_store)
+            # if self.cfg.write_tracking:
+            #     self.write_bbox_ids_json()
+    
+    def write_skeletons_data(self, data_queue):
+        if self.store_video:
+            video_writer = self.set_up_video()
+        
+        data_store = []
+        while True:
+            if self.stopped:
+                break
+            if data_queue.empty():
+                continue
+            
+            if  not self.pause_stream: 
+                # inps=self.wait_and_get(self.queue)
+                item = data_queue.get()
                 if item is not None:
-                    (im_name,result)=item
-                    if im_name==None and result==None: #queue reach the end
+                    (orig_img, result) = item
+                    if orig_img is None and result is None:  # queue reach the end
                         print("pose queue reach end!")
                         break
                     else:
                         data_store.append(result)
-                        
-                        # print("POSE GET:",item[0],flush=True)
+                        print("POSE GET:",result['imgname'],flush=True)
+                        # write to video frame
+                        if self.store_video:
+                            img = plot_2d_skeleton(orig_img, result, self.cfg.write_box, self.cfg.write_tracking)
+                            video_writer.write(img)
+                            # print("frame count:", result['imgname'])  
+         
+        if self.store_video:
+            video_writer.release()        
 
-                # if len(pose_queue)>15:
-                #     datas=pose_queue.copy()
-                #     # print(datas.keys())
-                #     pose_queue=[]
-                #     self.run_3D_pose(datas)
-                # all_results.append(data)
-                
+        print("start writing pose json data")
+        if self.cfg.write_skeleton:
+            self.write_2D_pose_json(data_store)
+            if self.cfg.write_tracking:
+                self.write_2D_id_pose_json()
 
-        print("start writing json data")
-        self.write_2D_id_pose_json(data_store)
-        
-        
+    def recognize_video_ext(self, ext=''):
+        if ext == 'mp4':
+            return cv2.VideoWriter_fourcc(*'mp4v'), '.' + ext
+        elif ext == 'avi':
+            return cv2.VideoWriter_fourcc(*'XVID'), '.' + ext
+        elif ext == 'mov':
+            return cv2.VideoWriter_fourcc(*'XVID'), '.' + ext
+        else:
+            print("Unknow video format {}, will use .mp4 instead of it".format(ext))
+            return cv2.VideoWriter_fourcc(*'mp4v'), '.mp4'
     
-        
-    def run_3D_pose(self,wild_dataset,for_eval=True):
-        # print(wild_dataset)
-        return
-        # if not wild_dataset:
-        #     return
-        # wild_dataset = PoseDataset(json, clip_len=self.cfg.clip_len, scale_range=[1,1], focus=opts.focus)
-        # test_loader = DataLoader(wild_dataset, **self.testloader_params)
-        # results_all=[]
-        # with torch.no_grad():
-        #     for batch_input in tqdm(test_loader):
-        #         N, T = batch_input.shape[:2]
-        #         if torch.cuda.is_available():
-        #             batch_input = batch_input.cuda()
-        #         if self.cfg.no_conf:
-        #             batch_input = batch_input[:, :, :, :2]
-        #         if self.cfg.flip:    
-        #             batch_input_flip = flip_data(batch_input)
-        #             predicted_3d_pos_1 = self.model(batch_input)
-        #             predicted_3d_pos_flip = self.model(batch_input_flip)
-        #             predicted_3d_pos_2 = flip_data(predicted_3d_pos_flip) # Flip back
-        #             predicted_3d_pos = (predicted_3d_pos_1 + predicted_3d_pos_2) / 2.0
-        #         else:
-        #             predicted_3d_pos = self.model(batch_input)
-        #         if self.cfg.rootrel:
-        #             predicted_3d_pos[:,:,0,:]=0                    # [N,T,17,3]
-        #         else:
-        #             predicted_3d_pos[:,0,0,2]=0
-        #             pass
-        #         if self.cfg.gt_2d:
-        #             predicted_3d_pos[...,:2] = batch_input[...,:2]
-        #         results_all.append(predicted_3d_pos.cpu().numpy())
-        # results_all = np.hstack(results_all)
-        # results_all = np.concatenate(results_all)     
-        # print(results_all.shape)  
     @property
     def stopped(self):
         if self.cfg.sp:

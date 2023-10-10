@@ -35,13 +35,19 @@ def video_to_frame(input_video_path):
     '''
     video_images = []
     vidcap = cv2.VideoCapture(input_video_path)
+    if (vidcap.isOpened() == False):
+        print("Error opening the video file")
+        exit()
     fps = vidcap.get(cv2.CAP_PROP_FPS)
-    success, image = vidcap.read()
+    
     count = 0
-    while success:
-        video_images.append(image)
-        success, image = vidcap.read()
-        count += 1
+    while(vidcap.isOpened()):
+        ret, frame = vidcap.read()
+        if ret == True:
+            video_images.append(frame)
+            count += 1
+        else:
+            break
     vidcap.release()
 
     # set image count labels

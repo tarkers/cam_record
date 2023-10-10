@@ -29,13 +29,59 @@ CHART:
 mode: "webcam"
 device: "0"
 
+Writer:
+  sp: False
+  write_box: True
+  write_skeleton: False
+  write_tracking: False
+
+Detector:
+  tracking: False
+  detector: "yolov7"
+  detbatch: 5
+  detect_classes: [0] #filter class
+  INP_DIM: 640
+  NMS_THRES:  0.5
+  CONFIDENCE:  0.75
+  NUM_CLASSES:   80
+  CLASS_CANDIDATE_NUM: 5 
+  CONFIG: 'detector/yolo/cfg/yolov3-spp.cfg'
+  WEIGHTS: 'detector/yolo/data/yolov3-spp.weights'
+  weights: './libs/detector/yolov7/data/yolov7.pt'
+  min_box_area: 10
+  augment: False
+  exist_ok: False
+  trace: True
+  # view_img: False
+  # save_txt: False
+  # save_conf: False
+  # nosave: False
+  # agnostic_nms: False
+  # conf_thres: 0.25
+  # iou_thres: 0.45
+  # update: False
+  
+  DATA_PRESET:
+    TYPE: 'simple'
+    SIGMA: 2
+    NUM_JOINTS: 26
+    IMAGE_SIZE:
+    - 256
+    - 192
+    HEATMAP_SIZE:
+    - 64
+    - 48
+
+  sp: False
+
+
 Pose3D:
   # General  
   train_2d: False
   no_eval: False
   finetune: True
   partial_train: null
-
+  pixel: True
   # Traning 
   epochs: 60
   checkpoint_frequency: 30
@@ -80,9 +126,9 @@ Pose3D:
   mask_ratio: 0.
   mask_T_ratio: 0.
   noise: False
+  
   ##args
-  evaluate: "libs/Pose3D/lib/model/FT_MB_lite_MB_ft_h36m_global_lite.bin"
-  clip_len: 243
+  evaluate: "Pose3D/lib/model/FT_MB_lite_MB_ft_h36m_global_lite.bin"
   focus: 
   sp: False
 
@@ -184,42 +230,4 @@ Pose2D:
     - 130
 
 
-Detector:
-  tracking: True
-  detector: "yolov7"
-  detbatch: 5
-  detect_classes: [0] #filter class
-  INP_DIM: 640
-  NMS_THRES:  0.5
-  CONFIDENCE:  0.75
-  NUM_CLASSES:   80
-  CLASS_CANDIDATE_NUM: 5 
-  CONFIG: 'detector/yolo/cfg/yolov3-spp.cfg'
-  WEIGHTS: 'detector/yolo/data/yolov3-spp.weights'
-  weights: './libs/detector/yolov7/data/yolov7.pt'
-  min_box_area: 10
-  augment: False
-  exist_ok: False
-  trace: True
-  # view_img: False
-  # save_txt: False
-  # save_conf: False
-  # nosave: False
-  # agnostic_nms: False
-  # conf_thres: 0.25
-  # iou_thres: 0.45
-  # update: False
-  
-  DATA_PRESET:
-    TYPE: 'simple'
-    SIGMA: 2
-    NUM_JOINTS: 26
-    IMAGE_SIZE:
-    - 256
-    - 192
-    HEATMAP_SIZE:
-    - 64
-    - 48
-
-  sp: False
 

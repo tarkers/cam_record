@@ -20,11 +20,12 @@ class webCamDetectQueue:
     """
 
     def __init__(self, input_source, cfg, detector=None, tracker=None, queueSize=150):
-        stream = cv2.VideoCapture(r"person_walking_short.mp4")    #test
+        
+        stream = cv2.VideoCapture(input_source)    #test
         # stream = cv2.VideoCapture(int(input_source))
         assert stream.isOpened(), "Cannot capture source"
 
-        self.path = r"person_walking_short.mp4"
+        self.path = input_source
         self.cfg = cfg
         self.pause_stream = False
         self.detector = detector
@@ -106,12 +107,13 @@ class webCamDetectQueue:
 
     def detector_process(self,queue):
         # self.queue =queue
+        
         stream = cv2.VideoCapture(self.path)
         assert stream.isOpened(), "Cannot capture source"
         frame_idx = 0
         self.tracker.init_fastreid() #load for thread
        
-         # keep looping infinitely
+        # keep looping infinitely
         for _ in count():
             if self.stopped:
                 print("detect queue is stopped!!")       
@@ -150,10 +152,9 @@ class webCamDetectQueue:
                     (img_k, orig_img, im_name, im_dim_list_k)
                 )
                 item =self.image_postprocess(img_det)
-                # print("BOX Put: ",im_name,flush=True)
+                
                 queue.put(item)
-                
-                
+                  
                 # # test terminate code
                 # if frame_idx >10:
                 #     print("Finish streaming images!")
@@ -188,7 +189,7 @@ class webCamDetectQueue:
                 return (orig_img, im_name, None, None, None, None, None, None)
 
             dets = dets.cpu()
-            if isinstance(dets, torch.FloatTensor):
+            if isinstance(dets, torch.FloatTensor) and self.cfg.tracking:
                 dets = torch.Tensor.numpy(dets)
                 
             if self.cfg.tracking:
@@ -199,7 +200,6 @@ class webCamDetectQueue:
                 boxes = dets[:, 1:5]
                 scores = dets[:, 5:6]
                 ids = torch.zeros(scores.shape)
-
         if isinstance(boxes, int) or boxes.size(0) == 0:
             return (orig_img, im_name, None, None, None, None, None, None)
         inps = torch.zeros(boxes.size(0), 3, *self._input_size)
@@ -255,16 +255,11 @@ class webCamDetectQueue:
             ) = inputs
 
             if orig_img is None or self.stopped:  # no  image
-                # self.wait_and_put(
-                #     self.queue, (None, None, None, None, None, None, None, None)
-                # )
+
                 return (None, None, None, None, None, None, None, None)
             
             if boxes is None or boxes.nelement() == 0:  # no detect object
-                # self.wait_and_put(
-                #     self.queue,
-                #     (None, orig_img, im_name, class_ids, boxes, scores, ids, None),
-                # )
+
 
                 return  (None, orig_img, im_name, class_ids, boxes, scores, ids, None)
 

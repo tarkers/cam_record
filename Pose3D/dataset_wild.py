@@ -102,19 +102,25 @@ def read_input(json_path, vid_size, scale_range, focus):
         motion = crop_scale(kpts_all, scale_range) 
     return motion.astype(np.float32)
 
-def perpare_id_json(results):
-    focus_ids={}
-    for item in results:
-        kpts = np.array(item['keypoints']).reshape([-1,3])
-        if item['idx'] not in focus_ids:
-           focus_ids[item['idx']] = [item['image_id'],kpts]
-        else:
-            focus_ids[item['idx']].append([item['image_id'],kpts])
-            
-    for id in focus_ids:
-        results_all = np.array(focus_ids[id])
-        kpts_all = results_all[:,1:]
-        kpts_all = halpe2h36m(kpts_all)
+def generate_datasets(keypoints, vid_size, scale_range):
+    kpts_all = []
+    for kpt in keypoints:
+        kpts = np.array(kpt).reshape([-1,3])
+        kpts_all.append(kpts)
+    kpts_all = np.array(kpts_all)
+    kpts_all = halpe2h36m(kpts_all)
+    if vid_size:
+        w, h = vid_size
+        scale = min(w,h) / 2.0
+        kpts_all[:,:,:2] = kpts_all[:,:,:2] - np.array([w, h]) / 2.0
+        kpts_all[:,:,:2] = kpts_all[:,:,:2] / scale
+        motion = kpts_all
+        print(motion.shape,"Test vid_size")
+    if scale_range:
+        motion = crop_scale(kpts_all, scale_range) 
+        print(motion.shape,"Test scale_range")
+    return motion.astype(np.float32)
+
 
 class WildDetDataset(Dataset):
     def __init__(self, json_path, clip_len=243, vid_size=None, scale_range=None, focus=None):
@@ -133,11 +139,11 @@ class WildDetDataset(Dataset):
         return self.vid_all[st:end]
     
 class PoseDataset(Dataset):
-    def __init__(self, json_path, clip_len=243, vid_size=None, scale_range=None, focus=None):
-        self.json_path = json_path
+    def __init__(self, key_points, clip_len=243, vid_size=None, scale_range=None, focus=None):
+    
         self.clip_len = clip_len
-        self.vid_all = read_input(json_path, vid_size, scale_range, focus)
-        
+        self.vid_all = generate_datasets(key_points, vid_size, scale_range)
+
     def __len__(self):
         'Denotes the total number of samples'
         return math.ceil(len(self.vid_all) / self.clip_len)

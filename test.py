@@ -24,14 +24,7 @@ from util import Timer
 from libs.vis import plot_boxes,plot_2d_skeleton
 
 
-def loop():
-    n = 0
-    while True:
-        yield n
-        n += 1
-        
 
-        # print(json_results)
         
 if __name__ == "__main__":
 
@@ -39,6 +32,7 @@ if __name__ == "__main__":
     pose_cfg = update_config(r"libs\configs\configs.yaml").Pose2D
     pose3d_cfg = update_config(r"libs\configs\configs.yaml").Pose3D
     tracker_cfg = update_config(r"libs\configs\configs.yaml").TRACKER
+    writer_cfg = update_config(r"libs\configs\configs.yaml").Writer
     
     pose_cfg.mode="webcam"
     pose_cfg.device="0"
@@ -60,41 +54,55 @@ if __name__ == "__main__":
     # test.tracking = test.pose_track or test.pose_flow or test.detector=='tracker'
     ## test code ##
     cfg.sp=False
-    if cfg.sp:
-        _stopped = False
-        box_queue = Queue(maxsize=150)
-        pose_queue = Queue(maxsize=150)
-    else:
-        _stopped = mp.Value("b", False)
-        box_queue = mp.Queue(maxsize=150)
-        pose_queue = mp.Queue(maxsize=150)
+    
     # Create tracker
     tracker = BoTSORT(tracker_cfg, frame_rate=60.0)
-    
-    q = webCamDetectQueue(0, test, get_detector(test),tracker)
+    # video=rf'test_video.mp4'
+    video=rf'Ptz02_Fps060_20230926_191002_C001_T0332_0345.mp4'
+    q = webCamDetectQueue(video, test, get_detector(test),tracker)
     video_info=q.videoinfo
-    print(video_info)   #get  {"fourcc": fourcc, "fps": fps, "frameSize": frameSize}
-    poseq=Pose2DQueue(pose_cfg)
-    writer=WriterDQueue(pose3d_cfg)
+    video_info['name']=os.path.basename(video)
+
+    
+    writer=WriterDQueue(writer_cfg,video_info,"Test",True)
     print("Starting webcam demo, press Ctrl + C to terminate...")
     sys.stdout.flush()
-    im_names_desc = loop()
-    timer = Timer()
-    q_process=q.start(box_queue)
-    
-    yn=q.yolo_classes
-    # writer_thread=writer.start()
-    time.sleep(2)
-    pose_process=poseq.start(box_queue,pose_queue)
-    time.sleep(2)
-    writer_process=writer.start(pose_queue)
-   
-    
-    q_process[0].join()
-    pose_process[0].join()
-    writer_process[0].join()
-    print("finish 2d estimate")
-    ## lift to 3D ##
+
+    if writer_cfg.write_skeleton:
+        if cfg.sp:
+            _stopped = False
+            box_queue = Queue(maxsize=150)
+            pose_queue = Queue(maxsize=150)
+        else:
+            _stopped = mp.Value("b", False)
+            box_queue = mp.Queue(maxsize=150)
+            pose_queue = mp.Queue(maxsize=150)
+        
+        poseq=Pose2DQueue(pose_cfg)
+        q_process=q.start(box_queue)
+        time.sleep(2)
+        pose_process=poseq.start(box_queue,pose_queue)
+        time.sleep(2)
+        writer_process=writer.start(pose_queue)
+
+        q_process[0].join()
+        pose_process[0].join()
+        writer_process[0].join()
+        print("finish 2d estimate")
+    else:
+        if cfg.sp:
+            _stopped = False
+            box_queue = Queue(maxsize=150)
+        else:
+            _stopped = mp.Value("b", False)
+            box_queue = mp.Queue(maxsize=150)
+        q_process=q.start(box_queue)
+        time.sleep(2)
+        writer_process=writer.start(box_queue)
+        q_process[0].join()
+        writer_process[0].join()
+        print("finish bbox  estimate")
+
     
     
     ##################################
