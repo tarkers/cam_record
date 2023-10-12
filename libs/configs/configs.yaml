@@ -32,11 +32,12 @@ device: "0"
 Writer:
   sp: False
   write_box: True
-  write_skeleton: False
-  write_tracking: False
+  write_skeleton: True
+  write_tracking: True
+  vis_video: True
 
 Detector:
-  tracking: False
+  tracking: True
   detector: "yolov7"
   detbatch: 5
   detect_classes: [0] #filter class
@@ -144,7 +145,7 @@ TRACKER:
   mot20: False
 
   # ReID module
-  with_reid: False
+  with_reid: True
   proximity_thresh: 0.5
   appearance_thresh: 0.25
   device: ''

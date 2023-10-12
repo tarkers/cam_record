@@ -51,7 +51,10 @@ class WriterDQueue:
         else:
             self._stopped = mp.Value("b", False)
             self.queue = mp.Queue(maxsize=queueSize)
-    
+
+        ## generate vis video window
+        if self.cfg.vis_video:
+            cv2.namedWindow("Video", cv2.WINDOW_NORMAL) 
     def write_2D_id_pose_json(self, for_eval=True):
        
         focus_ids = {}
@@ -259,12 +262,16 @@ class WriterDQueue:
                 'ids':ids })
                 print("BOX GET:",im_name,flush=True)
                 if self.store_video: 
+                    
                         # writ to video frame
                     if self.cfg.write_tracking:
                         img = plot_boxes(orig_img, bbox, ids, None)
                         
                     else:
                         img = plot_boxes(orig_img, bbox, None, None)
+                    if self.cfg.vis_video:
+                        cv2.imshow("Video",img)
+                        cv2.waitKey(1)
                     video_writer.write(img)
                     # print("frame count:", im_name)  
         if self.store_video:
@@ -301,6 +308,9 @@ class WriterDQueue:
                         # write to video frame
                         if self.store_video:
                             img = plot_2d_skeleton(orig_img, result, self.cfg.write_box, self.cfg.write_tracking)
+                            if self.cfg.vis_video:
+                                cv2.imshow("Video",img)
+                                cv2.waitKey(1)
                             video_writer.write(img)
                             # print("frame count:", result['imgname'])  
          
