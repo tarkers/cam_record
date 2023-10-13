@@ -1,0 +1,19 @@
+QComboBox {
+    border: 1px solid gray;
+    border-radius: 3px;
+    padding: 1px 18px 1px 3px;
+    min-width: 6em;
+}
+/* QPushButton{
+   
+} */
+QPushButton:hover{
+    font: 14px arial bold;
+    background-color: rgb(238, 162, 162);
+}
+QTabWidget{
+    border: 2px black solid;
+}
+QGroupBox{
+    background-color: white;
+}

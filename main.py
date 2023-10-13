@@ -16,7 +16,10 @@ import pathlib
 from util.utils import DataType ,video_to_frame
 
 #set 1280 720
-
+## test read css style ##
+with open('util\stream_style.css') as f:
+    STYLE = f.read()
+    
 class Ui(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(Ui, self).__init__(parent)
@@ -79,10 +82,10 @@ class Ui(QMainWindow, Ui_MainWindow):
     def set_camera(self):
         self.open_camera=not self.open_camera
         if self.open_camera:
-            self.camera_btn.setText("Close Camera")
+            self.camera_btn.setText("關閉直播")
             self.start_thread()
         else:
-            self.camera_btn.setText("Open Camera")
+            self.camera_btn.setText("開啟直播")
             self.stop_thread()
         
         self.error_label.setText("")
@@ -112,14 +115,14 @@ class Ui(QMainWindow, Ui_MainWindow):
         extract video to images and clips several board images
         '''
         if self.thread:
-            self.error_label.setText("pls close camera first")
+            self.error_label.setText("請先關閉直播 ")
             return
         self.video_path = self.load_data(None, None, None, DataType.VIDEO)       
         # no video found
         if self.video_path == "":
             return
         else:
-            self.board_label.setText("Loading!!!")  
+            self.board_label.setText("載入中!!!")  
             self.images,fps,_=video_to_frame(self.video_path)
             self.extract_images_to_board(fps)
 
@@ -133,15 +136,15 @@ class Ui(QMainWindow, Ui_MainWindow):
             if len(self.board_images)>40:
                 break
         if len(self.board_images)>10:
-            self.board_label.setText("Loaded!")       
+            self.board_label.setText("載入完畢!")       
         else:
-            self.board_label.setText("Not enough pictures!")   
+            self.board_label.setText("影像量不足!")   
         self.convert_cv_qt(self.board_images[0])
 
 
     def load_image_folder(self):
         if self.thread:
-            self.error_label.setText("please close camera first")
+            self.error_label.setText("請先關閉直播")
             return
         folder_name = QFileDialog.getExistingDirectory(
             None, "select folder", None)
@@ -156,11 +159,11 @@ class Ui(QMainWindow, Ui_MainWindow):
                     self.board_images.append(image)
                 
         if len(self.board_images)>10:
-            self.board_label.setText("Loaded!")    
+            self.board_label.setText("已載入!")    
             self.images=self.board_images.copy()  
             self.convert_cv_qt(self.board_images[0]) 
         else:
-            self.board_label.setText("Not enough pictures!")   
+            self.board_label.setText("影像量不足!")   
         
 
     def load_mtx(self):
@@ -230,9 +233,9 @@ class Ui(QMainWindow, Ui_MainWindow):
         if self.writer:
             self.writer.release()
             self.writer=None
-            self.save_label.setText("video_save to: " + self.save_place)
+            self.save_label.setText("影片存於: " + self.save_place)
         else:
-            self.save_label.setText("no recording found")
+            self.save_label.setText("沒有影片")
 
     def convert_cv_qt(self, cv_img,fix_h=500):
         """Convert from an opencv image to QPixmap"""
@@ -311,10 +314,12 @@ class Ui(QMainWindow, Ui_MainWindow):
         for i,image in enumerate(self.board_images):
             cv2.imwrite(f"./{camera_name}/{i}.png",image)
             
-        self.error_label.setText("data saved!")
+        self.error_label.setText("數據儲存完畢!")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle(QStyleFactory.create('bb10dark'))  
+    app.setStyleSheet(STYLE)
     window = Ui()
     window.show()
     sys.exit(app.exec_())

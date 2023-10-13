@@ -29,7 +29,7 @@ class MessageButtonType(IntEnum):
     No=1,
     Cancel=2,
     OK=3,
-def video_to_frame(input_video_path):
+def video_to_frame(input_video_path,start_frame=0,end_frame=2000):
     '''
     return video_image,fps,count
     '''
@@ -44,8 +44,12 @@ def video_to_frame(input_video_path):
     while(vidcap.isOpened()):
         ret, frame = vidcap.read()
         if ret == True:
-            video_images.append(frame)
+            if start_frame<=count:
+                video_images.append(frame)
             count += 1
+            if count > end_frame:
+                break
+            
         else:
             break
     vidcap.release()

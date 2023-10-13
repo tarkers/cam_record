@@ -9,6 +9,7 @@ import mimetypes
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
 import numpy as np
 from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QStyleFactory
 from stream import RealsenseThread, VideoThread
 from datetime import datetime
 import os
@@ -20,8 +21,8 @@ from components import MessageBox, Loading, Clock, Canvas
 import yaml
 
 CFG=update_config(r"libs\configs\configs.yaml").CHART
-# with open(r"libs\configs\configs.yaml", "r") as stream:
-#     CFG = yaml.load(stream, Loader=yaml.FullLoader)
+
+
 
 
 class Ui(QMainWindow, Ui_MainWindow):
@@ -347,6 +348,8 @@ class Ui(QMainWindow, Ui_MainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle(QStyleFactory.create('motif'))    #['bb10dark', 'bb10bright', 'cleanlooks', 'cde', 'motif', 'plastique', 'Windows', 'Fusion']
+
     window = Ui()
     window.show()
     sys.exit(app.exec_())

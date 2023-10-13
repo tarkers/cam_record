@@ -17,7 +17,7 @@ from Pose3D.lib.utils.tools import *
 from Pose3D.lib.utils.learning import load_backbone
 from Pose3D.lib.utils.utils_data import flip_data
 from libs.vis import plot_boxes, plot_2d_skeleton
-
+from util import Timer
 
 class WriterDQueue:
     """
@@ -52,9 +52,7 @@ class WriterDQueue:
             self._stopped = mp.Value("b", False)
             self.queue = mp.Queue(maxsize=queueSize)
 
-        ## generate vis video window
-        if self.cfg.vis_video:
-            cv2.namedWindow("Video", cv2.WINDOW_NORMAL) 
+        
     def write_2D_id_pose_json(self, for_eval=True):
        
         focus_ids = {}
@@ -110,12 +108,16 @@ class WriterDQueue:
                     keypoints.append(float(kp_preds[n, 1]))
                     keypoints.append(float(kp_scores[n]))
                 result['keypoints'] = keypoints
-                if 'idx'  in result:
-                    try:
-                        result['idx'] = int(human['idx'])
-                    except TypeError:
-                        result['idx'] = int(human['idx'].sort()[0])
-                        tracklet['tracklet'].append([int(x) for x in human['idx']]) 
+                
+                if 'idx'  in human:
+                    if isinstance(human['idx'],list) or isinstance(human['idx'],np.ndarray):
+                        human['idx'].sort()
+                        result['idx']=human['idx'][0]
+                    else:
+                        try:
+                            result['idx'] = int(human['idx'])
+                        except TypeError:
+                            print(type(human['idx']))
                 else:
                     result['idx'] = None        
 
@@ -228,6 +230,9 @@ class WriterDQueue:
     def write_bbox_data(self, data_queue):
         if self.store_video:
             video_writer = self.set_up_video()
+        ## generate vis video window
+        if self.cfg.vis_video:
+            cv2.namedWindow("Video", cv2.WINDOW_NORMAL) 
         data_store = []
         while True:
             if self.stopped:
@@ -269,11 +274,12 @@ class WriterDQueue:
                         
                     else:
                         img = plot_boxes(orig_img, bbox, None, None)
+                    
+                    video_writer.write(img)
                     if self.cfg.vis_video:
                         cv2.imshow("Video",img)
                         cv2.waitKey(1)
-                    video_writer.write(img)
-                    # print("frame count:", im_name)  
+                          
         if self.store_video:
             video_writer.release()        
 
@@ -286,8 +292,13 @@ class WriterDQueue:
     def write_skeletons_data(self, data_queue):
         if self.store_video:
             video_writer = self.set_up_video()
-        
+        ## generate vis video window
+        if self.cfg.vis_video:
+            cv2.namedWindow("Video", cv2.WINDOW_NORMAL) 
+            
         data_store = []
+        timer=Timer()   
+        
         while True:
             if self.stopped:
                 break
@@ -304,16 +315,21 @@ class WriterDQueue:
                         break
                     else:
                         data_store.append(result)
-                        print("POSE GET:",result['imgname'],flush=True)
+                        timer.toc()
+                        meta=rf"POSE GET:{result['imgname']},FPS: {timer.fps}"
+                        print(meta,flush=True)
+                       
+
                         # write to video frame
                         if self.store_video:
                             img = plot_2d_skeleton(orig_img, result, self.cfg.write_box, self.cfg.write_tracking)
+                            video_writer.write(img)
                             if self.cfg.vis_video:
+                                cv2.putText(img, meta, (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
                                 cv2.imshow("Video",img)
                                 cv2.waitKey(1)
-                            video_writer.write(img)
                             # print("frame count:", result['imgname'])  
-         
+                        timer.tic()
         if self.store_video:
             video_writer.release()        
 
