@@ -32,12 +32,12 @@ device: "0"
 Writer:
   sp: False
   write_box: True
-  write_skeleton: True
-  write_tracking: True
+  write_skeleton: False
+  write_tracking: False
   vis_video: True
 
 Detector:
-  tracking: True
+  tracking: False
   detector: "yolov7"
   detbatch: 5
   detect_classes: [0] #filter class

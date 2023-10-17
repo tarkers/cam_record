@@ -234,6 +234,7 @@ class WriterDQueue:
         if self.cfg.vis_video:
             cv2.namedWindow("Video", cv2.WINDOW_NORMAL) 
         data_store = []
+        box_timer=Timer()
         while True:
             if self.stopped:
                 break
@@ -265,9 +266,11 @@ class WriterDQueue:
                 'scores':scores,
                 'class_ids':class_ids,
                 'ids':ids })
+                box_timer.toc()
+                meta=rf"BOX GET:{im_name},FPS: {box_timer.fps}"
+
                 print("BOX GET:",im_name,flush=True)
                 if self.store_video: 
-                    
                         # writ to video frame
                     if self.cfg.write_tracking:
                         img = plot_boxes(orig_img, bbox, ids, None)
@@ -277,9 +280,10 @@ class WriterDQueue:
                     
                     video_writer.write(img)
                     if self.cfg.vis_video:
+                        cv2.putText(img, meta, (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
                         cv2.imshow("Video",img)
                         cv2.waitKey(1)
-                          
+                box_timer.tic()     
         if self.store_video:
             video_writer.release()        
 
@@ -297,7 +301,7 @@ class WriterDQueue:
             cv2.namedWindow("Video", cv2.WINDOW_NORMAL) 
             
         data_store = []
-        timer=Timer()   
+        pose_timer=Timer()   
         
         while True:
             if self.stopped:
@@ -315,8 +319,8 @@ class WriterDQueue:
                         break
                     else:
                         data_store.append(result)
-                        timer.toc()
-                        meta=rf"POSE GET:{result['imgname']},FPS: {timer.fps}"
+                        pose_timer.toc()
+                        meta=rf"POSE GET:{result['imgname']},FPS: {pose_timer.fps}"
                         print(meta,flush=True)
                        
 
@@ -329,7 +333,7 @@ class WriterDQueue:
                                 cv2.imshow("Video",img)
                                 cv2.waitKey(1)
                             # print("frame count:", result['imgname'])  
-                        timer.tic()
+                        pose_timer.tic()
         if self.store_video:
             video_writer.release()        
 

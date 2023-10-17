@@ -266,7 +266,7 @@ class YOLODetector(BaseDetector):
             #WE can  do NMS classwise
             #print(img_classes)
             for cls in img_classes:
-                if int(cls) not in self.detector_opt.detect_classes:    #filter class
+                if self.detector_opt.detect_classes is not None and  int(cls) not in self.detector_opt.detect_classes:    #filter class
                     continue
 
                 #get the detections with one particular class
