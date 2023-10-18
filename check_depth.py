@@ -103,26 +103,35 @@ def knn_video(path):
         ret,frame=cap.read()
         if ret:
             img=frame[450:1050,:1850,:]
+
             rgb=img.copy()
             # if mask is None:
             #     mask = np.full((img.shape[0], img.shape[1],3), 0, dtype=np.uint8) 
             #     rgb=mask
             # img=frame[450:1050,:1850,:]
-            timer.tic()
+            
             
            
-            img = cv2.GaussianBlur(img,(3,3),0)
             
-            img[img<70]=0   
+            
+            img = cv2.GaussianBlur(img,(3,3),0)  
             img=knn.apply(img)
-            img = cv2.medianBlur(img,3)
+            # img = cv2.medianBlur(img,3)
             img = cv2.medianBlur(img,5)
-            # contours,hierarchy = cv2.findContours(img, 1, 2)
-            # bboxes=[]
-            # for cnt in contours:
-            #     x,y,w,h=cv2.boundingRect(cnt)
-            #     if w*h>150 :
-            #         cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            img = cv2.GaussianBlur(img,(3,3),0)
+            # se=cv2.getStructuringElement(cv2.MORPH_ELLIPSE , (3,3))
+            # img=cv2.morphologyEx(img, cv2.MORPH_OPEN, se)
+            
+            
+            contours,hierarchy = cv2.findContours(img, 1, 2)
+            for cnt in contours:
+                x,y,w,h=cv2.boundingRect(cnt)
+                if w*h>80 and w*h<800:
+                    cv2.rectangle(rgb, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                elif w*h<80:
+                    img[x:x+w,y:y+h]=0
+            cv2.imshow("blur",img)
+            cv2.waitKey(10)
             #     if w*h>150 and w*h<1000:
             #         bboxes.append(np.array([x,y,x + w,y+h]))
             # if len(bboxes)>0:
@@ -153,9 +162,10 @@ def knn_video(path):
             # # img=cv2.dilate(img,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=2)
             # # # img[img>200]=255   
             # contours,hierarchy = cv2.findContours(img, 1, 2)
+            timer.tic()
             img,key_point_xys=find_ball_per_frame(img,)
             if len(key_point_xys) >0:
-                new_test=tracker.match_keypoints(key_point_xys,i,rgb)
+                new_test=tracker.match_keypoints(key_point_xys,i)
             # for cnt in contours:
             #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
             #     if w>10 and h >10:
@@ -165,9 +175,12 @@ def knn_video(path):
             #     # cv2.drawContours(img, [box], 0, (255, 0, 0), 2)
                 if new_test is not None:
                     for data in new_test:
-                        x,y,size,idx=data
                         # if img[y,x,0]>0:
-                        cv2.circle(rgb, (x,y), size, (0,255,255), -1) 
+                        if tracker.ball_found:
+                            x,y=data
+                            cv2.circle(rgb, (x,y), 5, (0,255,255), -1) 
+                        else:
+                            cv2.circle(rgb, (x,y), 5, (255,0,0), -1) 
             if key_point_xys is not None:
                 for data in key_point_xys:
                     x,y,size=data
@@ -195,7 +208,7 @@ def get_nearlist_path():
     pass
 
 def knn_images(images):
-    knn=cv2.createBackgroundSubtractorKNN(detectShadows=False)
+    knn=cv2.createBackgroundSubtractorKNN(detectShadows=True)
     for img in images:
         img=cv2.imread(img)
         fgmask=knn.apply(img)
@@ -218,23 +231,7 @@ def cal_match_path(path:dict):
     for k,v in path.items():
         print(k,v)
 
-def match_keypoints(key_points,frame_idx):
 
-    
-    fps=60
-    ball_found=False
-    if len(candidates)==0:
-        candidates=[key_points]
-        return 
-    
-    for start_idx in range(len(candidates)-1):
-        for end_idx in range(start_idx,len(candidates)):
-            two_point_length=calculate_length(candidates[start_idx][:-1],candidates[end_idx][:-1])
-            if (end_idx-start_idx)*150<two_point_length:
-                cal_match_path(candidates_path)
-        
-    candidates.append(key_points)
-   
     
 def find_ball_per_frame(img):
     # img = cv2.medianBlur(img,5)
@@ -242,18 +239,18 @@ def find_ball_per_frame(img):
     # 
     params = cv2.SimpleBlobDetector_Params()
     params.filterByColor = False
-    params.minThreshold = 45
+    params.minThreshold = 35
     params.maxThreshold = 95
     # params.blobColor = 254
-    params.minArea = 75
+    params.minArea = 80
     params.maxArea = 600
     params.filterByCircularity = True
     params.filterByConvexity = True
-    params.minConvexity = 0.25
-    params.minCircularity =.35
+    params.minConvexity = 0.35
+    params.minCircularity =.25
     params.maxCircularity = 1
     params.filterByInertia = True
-    params.minInertiaRatio = 0.35
+    params.minInertiaRatio = 0.45
     params.maxInertiaRatio = 1
     detector = cv2.SimpleBlobDetector_create(params)
     keypoints=detector.detect(img)
@@ -280,12 +277,11 @@ def find_ball_per_frame(img):
     return img,key_point_xys
 
 
-    # print(len(key_point))
-    
-    return img,key_point
+
 if __name__ == "__main__":
    
-    knn_video(rf"Test\D1\Cz03_252_2023-10-14_13-08-49-295.mkv")
+    # knn_video(rf"Test\D2\Cz03_914_2023-10-15_13-06-00-828.mkv")
+    knn_video(rf"Test\D2\Cz03_750_2023-10-15_13-57-12-838.mkv")
     exit()
     # knn_video(rf"D:\Chen\cam_record\Test\JAPAN vs USA _ Highlights _ Men s OQT 2023_3_1.mp4")
     # folder=rf"Test\image"
