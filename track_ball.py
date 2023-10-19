@@ -29,10 +29,10 @@ class NodeCandidate(object):
         self.child_node = ChildNode
         
         self._point = np.array(node[:2])
+        self.is_on_path=False
         self.frame_id = frame_id
         self.size = node[2]
-        self.rank = 0
-       
+        self.rank = 0 
         self._id = id_track
         id_track += 1
         
@@ -72,15 +72,17 @@ class NodeCandidate(object):
 
 
 class PathCandidate(object):
-
+    '''
+    add all start path node
+    '''
     def __init__(self):
-        self.node_list = []
-        
+        self.node_pool = []
+     
     def add_node(self, node):
-        self.node_list.add(node)
+        self.node_pool.append(node)
         
     def remove_node(self, node):
-        self.node_list.remove(node)
+        self.node_pool.remove(node)
     
     
 class TrackBall(object):
@@ -93,30 +95,27 @@ class TrackBall(object):
         self.speed_maxthreshold = 10
         self.node_candidate = []  # x,y,size,frame_idx
         self.new_node_candidate = []
+        self.path_candidate = PathCandidate()
         self.node_dict = {}
         self.found_center = []
         self.ball_found = False
         self.out_off_bound = False
         self.fake_candidate = []
     
-    def filter_node(self):
-        print("need filter node")
+
     
-    def find_lost_path(self, ball_candidates:List[NodeCandidate]  , n_f):
+    def find_lost_path(self, node_list:List[NodeCandidate]  , n_f):
         '''
         check if ball candidate can be select
         '''
         s_length = len(self.new_node_candidate)
-        node_list = []
-        # ## generate ball candidate
-        for tmp in ball_candidates:
-            node_list.append(NodeCandidate(tmp, n_f))
+        extract_path=None
         
         for start_idx in range(s_length):
             start_node = self.new_node_candidate[start_idx]
             s_f = start_node.frame_id
             
-            if start_node.child_node is not None:  # means it's on path
+            if start_node.child_node is not None or start_node.is_on_path:  # means it's on path
                 continue
             
             for next_node in node_list:  # check if can generate tracklet
@@ -125,7 +124,7 @@ class TrackBall(object):
                     if start_node not in self.delete_node:
                         self.delete_node.append(start_node)
                     continue
-                if distance > 20 * (n_f - s_f) // 2:  # distance too far , start node may not be real track
+                if distance > 20 * min((n_f - s_f) // 2,1):  # distance too far , start node may not be real track
                     if next_node not in self.new_node_candidate:
                         self.new_node_candidate.append(next_node)  # next_node may be root ball node
                     continue
@@ -144,15 +143,15 @@ class TrackBall(object):
                         if start_node.rank > 2:
                             print(f"found ball path:{start_node.ID} {start_node.point}")
                             self.ball_found = True
-                            ### test path###
+                            ### test path ###
                             tnp = next_node
-                            self.extract_path = []
+                            extract_path = []
                             while tnp.parent_node is not None:
-                                print(tnp.point)
-                                self.extract_path.append(tnp.point)
+                                tnp.is_in_path=True
+                                extract_path.append(tnp)
                                 tnp = tnp.parent_node
-                            print("-----------")
-                            break
+                            self.path_candidate.add_node(tnp)   #add the path start_node
+
                     elif next_node.parent_node is not None:
                         print("need to filter parent node")  # need to filter parent node
                     else:
@@ -175,61 +174,30 @@ class TrackBall(object):
                     tmp = tmp.child_node
         
         print(f"========================== {len(self.new_node_candidate)}")    
-        return self.node_candidate         
+        return extract_path      
 
-    def track_path(self):
-        pass
-    
-    def traced_new_path(self, ball_candidates, frame_idx):  # if ball not found then traced ball
+    def track_path(self,node_list, frame_idx):
         '''
-        check if ball candidate can be select
+        when we found ball_candidates we start to narror serch area
         '''
-        s_length = len(self.node_candidate)
+        now_start=self.extract_path[0]
+        found_next=False
+        test=[]
+        ## track by ball
+        for new_candidate in node_list:
+            distance = calculate_length(now_start.point, new_candidate.point) 
+            print(distance,50 * min((now_start.frame_id - frame_idx) // 2,1))
+            if distance >0 and distance < 20 * min((frame_idx-now_start.frame_id ) // 2,1):
+                self.extract_path.insert(0,new_candidate)
+                found_next=True
+                break
+        print("candidate:",len(test))
+        ## track by contour
+        if not found_next:
+            pass
+        ## track by image
         
-        for start_idx in range(s_length):
-            start_node = self.node_candidate[start_idx]
-            s_str = str(start_node)
-            
-            for next_node in ball_candidates:  # check if can generate tracklet
-                distance = calculate_length(start_node, next_node) 
-                if distance == 0:  # not track of static object
-                    self.delete_node.append(start_node)
-                    continue
-                if distance > 20 * (frame_idx - start_node[3]):  # distance too far ,may not be real track
-                    # # check if candidate has no chance to be save 
-                    continue
-                
-                if distance > 0 and distance < 10 * (frame_idx - start_node[3]):
-                    if s_str not in self.track_range: 
-                        self.track_range[s_str] = [[distance, frame_idx - start_node[3]]]
-                    else:  # on the path
-                        if self.track_range[s_str][-1][-1] < frame_idx - start_node[3] and \
-                            self.track_range[s_str][-1][0] < distance:  # path found
-                                self.ball_found = True
-                                self.found_center = next_node + [frame_idx]
-                                ###################### has path found##########################################
-                                tmp_start = self.node_candidate[start_idx]
-                                self.node_candidate = [tmp_start, next_node + [frame_idx]]
-                                # self.extract_path = [tmp_start, next_node + [frame_idx]]
-                                print("data_found")
-                                return self.node_candidate
-                        print(rf"{[s_str,str(next_node)]},last_frame:{self.track_range[s_str]},now:{[distance,frame_idx-start_node[3]]}")
-                    self.node_dict[s_str][1] += 1  # add confidence for this node
-                    x, y, size = next_node
-
-                # else:
-                #     node_str=str(next_node+[frame_idx])
-                #     if node_str not in self.node_dict:
-                #         self.node_candidate.append(next_node+[frame_idx])   # make this as ball candidate
-                #         self.node_dict[str(next_node+[frame_idx])]=[frame_idx,0]
-                #     elif self.node_dict[node_str]<3:
-                #          self.node_dict[node_str]-=1
-
-        # remove ball node
-        for node in self.delete_node:
-            self.node_candidate.remove(node)
-            del self.node_dict[str(node)]  
-        return self.node_candidate                  
+        return self.extract_path                
     
     def match_pic(self):
         pass
@@ -241,31 +209,22 @@ class TrackBall(object):
                 self.node_candidate.append(node + [frame_idx])
                 tmp = NodeCandidate(node, frame_idx)
                 self.new_node_candidate.append(tmp)
-            return self.node_candidate
+            return None
         self.delete_node = []
         
         self.has_next = False
-        
+        node_list=[]
+         ## generate ball candidate
+        for node in ball_candidates:
+            node_list.append(NodeCandidate(node, frame_idx))
+            
         if self.ball_found:  # has ball found then limit search range
-            self.track_path()
-            # for node in ball_candidates:
-            #     distance = calculate_length(self.found_center[:2], node) 
-            #     if distance > 0 and distance < 40 * (frame_idx - self.found_center[3]):
-            #         self.has_next = True
-            #         self.extract_path.append(node + [frame_idx])
-            #         self.found_center = node + [frame_idx]
+            return self.track_path(node_list, frame_idx)
 
-            # if not self.has_next:
-            #     print(f"lost track :{self.extract_path[-1][-1]} to {frame_idx} frame")
-            # return  self.extract_path 
-            return  self.extract_path 
         else:
-            self.find_lost_path(ball_candidates, frame_idx)
+            self.extract_path =self.find_lost_path(node_list, frame_idx)
+            print(self.extract_path,"tesetset")
             return  self.extract_path 
             # return self.traced_new_path(ball_candidates, frame_idx)
            
-        # if self.node_dict[s_str][1]<=0 and frame_idx-self.node_dict[s_str][0]>2: # delete this node from candidate
-        #     self.node_candidate.remove(start_node)
-        #     del self.node_dict[s_str]
-        #     print(self.node_candidate)
- 
+      

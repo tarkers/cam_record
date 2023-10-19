@@ -19,10 +19,7 @@ from libs.detector.apis import get_detector
 from track_ball import TrackBall
 import skimage.measure
 
-a = np.array([
-     [20,20],
-     [20,20]
-])
+
 def non_max_suppression(boxes,scores,threshold=0.45):
     """
     Perform non-max suppression on a set of bounding boxes and corresponding scores.
@@ -54,50 +51,14 @@ def non_max_suppression(boxes,scores,threshold=0.45):
                 order.remove(j)
     return keep
 
-def nms(bboxes, scores, iou_thresh=0.35):
-    """
-
-    :param bboxes: 检测框列表
-    :param scores: 置信度列表
-    :param iou_thresh: IOU阈值
-    :return:
-    """
-
-    x1 = bboxes[:, 0]
-    y1 = bboxes[:, 1]
-    x2 = bboxes[:, 0]+bboxes[:, 2]
-    y2 =  bboxes[:, 1]+bboxes[:, 3]
-    areas = (y2 - y1) * (x2 - x1)
-
-    # 结果列表
-    result = []
-    if scores is None:
-        scores=np.ones(len(bboxes))
-    index = scores.argsort()[::-1]  
-
-    while index.size > 0:
-        i = index[0]
-        result.append(i) 
-
-        x11 = np.maximum(x1[i], x1[index[1:]])
-        y11 = np.maximum(y1[i], y1[index[1:]])
-        x22 = np.minimum(x2[i], x2[index[1:]])
-        y22 = np.minimum(y2[i], y2[index[1:]])
-        w = np.maximum(0, x22 - x11 + 1)
-        h = np.maximum(0, y22 - y11 + 1)
-        overlaps = w * h
-        ious = overlaps / (areas[i] + areas[index[1:]] - overlaps)
-        idx = np.where(ious <= iou_thresh)[0]
-        index = index[idx + 1]  
-    bboxes, scores = bboxes[result], scores[result]
-    return bboxes, scores
 
 def knn_video(path):
     cap=cv2.VideoCapture(path)
-    knn=cv2.createBackgroundSubtractorKNN(detectShadows=True)
+    knn=cv2.createBackgroundSubtractorKNN(history=550, dist2Threshold=650.0,detectShadows=True)
     timer=Timer()
     i=0
     mask = None
+    search_center=[]
     tracker=TrackBall()
     while True:
         ret,frame=cap.read()
@@ -109,19 +70,33 @@ def knn_video(path):
             #     mask = np.full((img.shape[0], img.shape[1],3), 0, dtype=np.uint8) 
             #     rgb=mask
             # img=frame[450:1050,:1850,:]
-            
-            
-           
-            
-            
+
+            timer.tic()
             img = cv2.GaussianBlur(img,(3,3),0)  
             img=knn.apply(img)
+            if tracker.ball_found:  # limit search range
+                x,y=search_center
+                print(max(y-100,0),min(1050,y+100),max(x-100,0),min(1850,x+100))
+                test=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
+                test_rgb=rgb[max(y-70,0):min(1050,y+70),max(x-70,0):min(1850,x+70)]
+                test = cv2.medianBlur(test,5)
+                test = cv2.GaussianBlur(test,(3,3),0)
+                contours,hierarchy = cv2.findContours(test, 1, 2)
+                for cnt in contours:
+                    x,y,w,h=cv2.boundingRect(cnt)
+                    if w*h>60 and w*h<800:
+                        cv2.rectangle(test_rgb, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                
+                cv2.imshow("crop",test_rgb)
+                cv2.waitKey(0)
+                
             # img = cv2.medianBlur(img,3)
             img = cv2.medianBlur(img,5)
             img = cv2.GaussianBlur(img,(3,3),0)
             # se=cv2.getStructuringElement(cv2.MORPH_ELLIPSE , (3,3))
             # img=cv2.morphologyEx(img, cv2.MORPH_OPEN, se)
-            
+            timer.toc()
+            timer.tic()
             
             contours,hierarchy = cv2.findContours(img, 1, 2)
             for cnt in contours:
@@ -131,39 +106,17 @@ def knn_video(path):
                 elif w*h<80:
                     img[x:x+w,y:y+h]=0
             cv2.imshow("blur",img)
-            cv2.waitKey(10)
-            #     if w*h>150 and w*h<1000:
-            #         bboxes.append(np.array([x,y,x + w,y+h]))
-            # if len(bboxes)>0:
-            #     print(len(bboxes))
-            #     keep_id=non_max_suppression(np.array(bboxes),None)
-            #     print("keep_id",len(keep_id))
-            #     for i in keep_id:
-            #         x1,y1,x2,y2=bboxes[i]
-            #         cv2.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                # cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            
-            # img = cv2.medianBlur(img,3)
-            # img = cv2.medianBlur(img,5)
-            # img = cv2.GaussianBlur(img,(3,3),0)
-            # se=cv2.getStructuringElement(cv2.MORPH_ELLIPSE , (3,3))
-            # img=cv2.morphologyEx(img, cv2.MORPH_CLOSE, se)
-            # img = cv2.medianBlur(img,5)
-            # img[img<70]=0   
-            # # img[img>150]=255   
-            # se=cv2.getStructuringElement(cv2.MORPH_ELLIPSE , (3,3))
-            # img=cv2.morphologyEx(img, cv2.MORPH_CLOSE, se)
+            cv2.waitKey(1)
+       
            
-            # # se=cv2.getStructuringElement(cv2.MORPH_RECT , (3,3))
-            # # img=cv2.morphologyEx(img, cv2.MORPH_OPEN, se)
-            # # img = cv2.medianBlur(img,5)
-            # # img=cv2.erode(img,cv2.getStructuringElement(cv2.MORPH_RECT,(5,5)),iterations=1)
-            # # # img[img<80]=0   
-            # # img=cv2.dilate(img,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=2)
-            # # # img[img>200]=255   
-            # contours,hierarchy = cv2.findContours(img, 1, 2)
-            timer.tic()
             img,key_point_xys=find_ball_per_frame(img,)
+            if key_point_xys is not None:
+                for data in key_point_xys:
+                    x,y,size=data
+                    # if img[y,x,0]>0:
+                    cv2.circle(rgb, (x,y), size//2, (0,255,0), -1) 
+            
+            
             if len(key_point_xys) >0:
                 new_test=tracker.match_keypoints(key_point_xys,i)
             # for cnt in contours:
@@ -174,18 +127,16 @@ def knn_video(path):
             #     # box = np.int0(cv2.boxPoints(rect))  # 矩形的四个角点取整
             #     # cv2.drawContours(img, [box], 0, (255, 0, 0), 2)
                 if new_test is not None:
+                    print(new_test)
+                    search_center=new_test[0].point
                     for data in new_test:
                         # if img[y,x,0]>0:
                         if tracker.ball_found:
-                            x,y=data
+                            x,y=data.point
                             cv2.circle(rgb, (x,y), 5, (0,255,255), -1) 
-                        else:
-                            cv2.circle(rgb, (x,y), 5, (255,0,0), -1) 
-            if key_point_xys is not None:
-                for data in key_point_xys:
-                    x,y,size=data
-                    # if img[y,x,0]>0:
-                    cv2.circle(rgb, (x,y), size//2, (0,255,0), -1) 
+                        # else:
+                        #     cv2.circle(rgb, (x,y), 5, (255,0,0), -1) 
+            
             # fgmask =cv2.threshold(img.copy(),100,255,cv2.THRESH_BINARY)[1]
             # dilated=cv2.dilate(fgmask,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)
             # cv2.imwrite(rf"Test\image\{i:05}.png",fgmask)
