@@ -98,27 +98,29 @@ def knn_video(path):
             timer.toc()
             timer.tic()
             
-            contours,hierarchy = cv2.findContours(img, 1, 2)
-            for cnt in contours:
-                x,y,w,h=cv2.boundingRect(cnt)
-                if w*h>80 and w*h<800:
-                    cv2.rectangle(rgb, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                elif w*h<80:
-                    img[x:x+w,y:y+h]=0
+            # contours,hierarchy = cv2.findContours(img, 1, 2)
+            # for cnt in contours:
+            #     x,y,w,h=cv2.boundingRect(cnt)
+            #     if w*h>80 and w*h<800:
+            #         cv2.rectangle(rgb, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            #     elif w*h<80:
+            #         img[x:x+w,y:y+h]=0
+                    
+                    
             cv2.imshow("blur",img)
             cv2.waitKey(1)
        
            
-            img,key_point_xys=find_ball_per_frame(img,)
-            if key_point_xys is not None:
-                for data in key_point_xys:
-                    x,y,size=data
-                    # if img[y,x,0]>0:
-                    cv2.circle(rgb, (x,y), size//2, (0,255,0), -1) 
+            img,key_point_xys=find_ball_per_frame(img)
+            # if key_point_xys is not None:
+            #     for data in key_point_xys:
+            #         x,y,size=data
+            #         # if img[y,x,0]>0:
+            #         cv2.circle(rgb, (x,y), size//2, (0,255,0), -1) 
             
             
             if len(key_point_xys) >0:
-                new_test=tracker.match_keypoints(key_point_xys,i)
+                new_test=tracker.match_keypoints(key_point_xys,i,rgb)
             # for cnt in contours:
             #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
             #     if w>10 and h >10:
