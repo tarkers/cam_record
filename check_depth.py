@@ -66,17 +66,14 @@ def knn_video(path):
             img=frame[450:1050,:1850,:]
 
             rgb=img.copy()
-            # if mask is None:
-            #     mask = np.full((img.shape[0], img.shape[1],3), 0, dtype=np.uint8) 
-            #     rgb=mask
-            # img=frame[450:1050,:1850,:]
+
 
             timer.tic()
             img = cv2.GaussianBlur(img,(3,3),0)  
             img=knn.apply(img)
             if tracker.ball_found:  # limit search range
                 x,y=search_center
-                print(max(y-100,0),min(1050,y+100),max(x-100,0),min(1850,x+100))
+                # print(max(y-100,0),min(1050,y+100),max(x-100,0),min(1850,x+100))
                 test=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
                 test_rgb=rgb[max(y-70,0):min(1050,y+70),max(x-70,0):min(1850,x+70)]
                 test = cv2.medianBlur(test,5)
@@ -107,8 +104,8 @@ def knn_video(path):
             #         img[x:x+w,y:y+h]=0
                     
                     
-            cv2.imshow("blur",img)
-            cv2.waitKey(1)
+            # cv2.imshow("blur",img)
+            # cv2.waitKey(1)
        
            
             img,key_point_xys=find_ball_per_frame(img)
@@ -120,7 +117,9 @@ def knn_video(path):
             
             
             if len(key_point_xys) >0:
-                new_test=tracker.match_keypoints(key_point_xys,i,rgb)
+                tracker.match_keypoints(key_point_xys,i,rgb)
+            new_test=tracker.extract_path
+            print(len(new_test))
             # for cnt in contours:
             #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
             #     if w>10 and h >10:
@@ -128,17 +127,16 @@ def knn_video(path):
             #     # rect = cv2.minAreaRect(cnt)
             #     # box = np.int0(cv2.boxPoints(rect))  # 矩形的四个角点取整
             #     # cv2.drawContours(img, [box], 0, (255, 0, 0), 2)
-                if new_test is not None:
-                    print(new_test)
-                    search_center=new_test[0].point
-                    for data in new_test:
-                        # if img[y,x,0]>0:
-                        if tracker.ball_found:
-                            x,y=data.point
-                            cv2.circle(rgb, (x,y), 5, (0,255,255), -1) 
+            if new_test is not None and len(new_test) > 0:
+                search_center=new_test[0].point
+                for data in new_test:
+                    # if img[y,x,0]>0:
+                    # if tracker.ball_found:
+                    x,y=data.point
+                    cv2.circle(rgb, (x,y), 5, (0,255,255), -1) 
                         # else:
                         #     cv2.circle(rgb, (x,y), 5, (255,0,0), -1) 
-            
+
             # fgmask =cv2.threshold(img.copy(),100,255,cv2.THRESH_BINARY)[1]
             # dilated=cv2.dilate(fgmask,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)
             # cv2.imwrite(rf"Test\image\{i:05}.png",fgmask)
