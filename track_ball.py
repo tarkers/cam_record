@@ -183,7 +183,7 @@ class TrackBall(object):
         print(f"ball candidate: {len(self.new_node_candidate)}")    
          
 
-    def track_path(self,node_list, frame_idx):
+    def track_path(self,node_list, frame_idx,img):
         '''
         when we found ball_candidates we start to narror serch area
         '''
@@ -202,12 +202,29 @@ class TrackBall(object):
         
         
         if not found_next:
-            self.ball_found=False
-            print("lost ball tracking")
-            self.new_node_candidate.append(self.extract_path[0])    # append node back to candidate
+            latest_node=self.extract_path[0]
+            x,y=latest_node.point
+            crop=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
+            rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
+            ## track by contour
+            contours,hierarchy = cv2.findContours(crop, 1, 2)
 
-        ## track by image
-        
+            for cnt in contours:
+                x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+                if w>10 and h >10:
+                    print("find crop", (x, y), (x + w, y + h))
+                    cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.imshow("crop",rgb)
+            cv2.waitKey(0)    
+            if  False==True:
+                print("lost ball tracking")
+
+            ## track by image
+            elif False==True:
+                pass
+            else:   # we need to retrace the path
+                self.ball_found=False
+                self.new_node_candidate.append(self.extract_path[0])    # append node back to candidate
         return self.extract_path                
     
     def match_pic(self):
@@ -219,7 +236,7 @@ class TrackBall(object):
         crop =img[max(y-50,0):min(h,y+50),max(x-50,0):min(w,x+50)]
         return crop
     
-    def match_keypoints(self, ball_candidates, frame_idx,img):
+    def match_keypoints(self, ball_candidates, frame_idx,img,test):
         if len(self.new_node_candidate) == 0:  # first input set candidate inside
             for node in ball_candidates:
                 self.node_dict[str(node + [frame_idx])] = [frame_idx, 0]
@@ -242,7 +259,7 @@ class TrackBall(object):
             node_list.append(tmp)
             
         if self.ball_found:  # has ball found then limit search range
-            return self.track_path(node_list, frame_idx)
+            return self.track_path(node_list, frame_idx,test)
 
         else:
             self.find_lost_path(node_list, frame_idx)

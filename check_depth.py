@@ -71,25 +71,30 @@ def knn_video(path):
             timer.tic()
             img = cv2.GaussianBlur(img,(3,3),0)  
             img=knn.apply(img)
-            if tracker.ball_found:  # limit search range
-                x,y=search_center
-                # print(max(y-100,0),min(1050,y+100),max(x-100,0),min(1850,x+100))
-                test=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
-                test_rgb=rgb[max(y-70,0):min(1050,y+70),max(x-70,0):min(1850,x+70)]
-                test = cv2.medianBlur(test,5)
-                test = cv2.GaussianBlur(test,(3,3),0)
-                contours,hierarchy = cv2.findContours(test, 1, 2)
-                for cnt in contours:
-                    x,y,w,h=cv2.boundingRect(cnt)
-                    if w*h>60 and w*h<800:
-                        cv2.rectangle(test_rgb, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            test=img.copy()
+            # contours,hierarchy = cv2.findContours(img, 1, 2)
+            # for cnt in contours:
+            #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+            #     if w>10 and h >10:
+            #         cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            # if tracker.ball_found:  # limit search range
+            #     x,y=search_center
+            #     # print(max(y-100,0),min(1050,y+100),max(x-100,0),min(1850,x+100))
+            #     test=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
+            #     test_rgb=rgb[max(y-70,0):min(1050,y+70),max(x-70,0):min(1850,x+70)]
+            #     test = cv2.medianBlur(test,5)
+            #     test = cv2.GaussianBlur(test,(3,3),0)
+            #     contours,hierarchy = cv2.findContours(test, 1, 2)
+            #     for cnt in contours:
+            #         x,y,w,h=cv2.boundingRect(cnt)
+            #         if w*h>60 and w*h<800:
+            #             cv2.rectangle(test_rgb, (x, y), (x + w, y + h), (255, 0, 0), 2)
                 
-                cv2.imshow("crop",test_rgb)
-                cv2.waitKey(0)
+            #     cv2.imshow("crop",test_rgb)
+            #     cv2.waitKey(0)
                 
             # img = cv2.medianBlur(img,3)
-            img = cv2.medianBlur(img,5)
-            img = cv2.GaussianBlur(img,(3,3),0)
+            
             # se=cv2.getStructuringElement(cv2.MORPH_ELLIPSE , (3,3))
             # img=cv2.morphologyEx(img, cv2.MORPH_OPEN, se)
             timer.toc()
@@ -107,26 +112,23 @@ def knn_video(path):
             # cv2.imshow("blur",img)
             # cv2.waitKey(1)
        
-           
+            img = cv2.medianBlur(img,5)
+            img = cv2.GaussianBlur(img,(3,3),0)
             img,key_point_xys=find_ball_per_frame(img)
-            # if key_point_xys is not None:
-            #     for data in key_point_xys:
-            #         x,y,size=data
-            #         # if img[y,x,0]>0:
-            #         cv2.circle(rgb, (x,y), size//2, (0,255,0), -1) 
+            if key_point_xys is not None:
+                for data in key_point_xys:
+                    x,y,size=data
+                    # if img[y,x,0]>0:
+                    cv2.circle(rgb, (x,y), size//2, (255,0,0), 3) 
             
             
             if len(key_point_xys) >0:
-                tracker.match_keypoints(key_point_xys,i,rgb)
+                tracker.match_keypoints(key_point_xys,i,rgb,test)
             new_test=tracker.extract_path
-            print(len(new_test))
-            # for cnt in contours:
-            #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
-            #     if w>10 and h >10:
-            #         cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            #     # rect = cv2.minAreaRect(cnt)
-            #     # box = np.int0(cv2.boxPoints(rect))  # 矩形的四个角点取整
-            #     # cv2.drawContours(img, [box], 0, (255, 0, 0), 2)
+
+                # rect = cv2.minAreaRect(cnt)
+                # box = np.int0(cv2.boxPoints(rect))  # 矩形的四个角点取整
+                # cv2.drawContours(img, [box], 0, (255, 0, 0), 2)
             if new_test is not None and len(new_test) > 0:
                 search_center=new_test[0].point
                 for data in new_test:
