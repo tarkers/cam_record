@@ -106,7 +106,7 @@ class TrackBall(object):
         self.out_off_bound = False
         self.fake_candidate = []
         self.path_line=[]
-
+        self.lost_chance=2
     
     def find_lost_path(self, node_list:List[NodeCandidate]  , n_f):
         '''
@@ -132,7 +132,7 @@ class TrackBall(object):
                         self.new_node_candidate.append(next_node)  # next_node may be root ball node
                     continue
                 
-                if (n_f - s_f) > 4:  # # remove lost track data 
+                if (n_f - s_f) > 5:  # # remove lost track data 
                     if start_node not in self.delete_node:
                         print(f"will remove lost track: {start_node.ID}")
                         self.delete_node.append(start_node)
@@ -194,38 +194,49 @@ class TrackBall(object):
         for new_candidate in node_list:
             distance = calculate_length(now_start.point, new_candidate.point) 
             
-            if distance >0 and distance < 15 * min((frame_idx-now_start.frame_id ),1):
+            if distance >0 and distance < 25 * min((frame_idx-now_start.frame_id ),1):
                 self.extract_path.insert(0,new_candidate)
                 self.path_line=[new_candidate.point] + self.path_line
                 found_next=True
                 break
         
         
-        if not found_next:
-            latest_node=self.extract_path[0]
-            x,y=latest_node.point
-            crop=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
-            rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
-            ## track by contour
-            contours,hierarchy = cv2.findContours(crop, 1, 2)
+        if  found_next:
+            return
+        
+        self.lost_chance-=1
+        if self.lost_chance > 0 :
+            return
+        
+        self.lost_chance =2
+        self.ball_found=False
+        self.new_node_candidate.append(self.extract_path[0])
+        x,y=self.extract_path[0].point
+        crop=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
+        self.find_crop_rect(crop)
+        if  False==True:
+            print("lost ball tracking")
 
-            for cnt in contours:
-                x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
-                if w>10 and h >10:
-                    print("find crop", (x, y), (x + w, y + h))
-                    cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.imshow("crop",rgb)
-            cv2.waitKey(0)    
-            if  False==True:
-                print("lost ball tracking")
-
-            ## track by image
-            elif False==True:
-                pass
-            else:   # we need to retrace the path
-                self.ball_found=False
-                self.new_node_candidate.append(self.extract_path[0])    # append node back to candidate
+        ## track by image
+        elif False==True:
+            pass
+        else:   # we need to retrace the path
+            self.ball_found=False
+            self.new_node_candidate.append(self.extract_path[0])    # append node back to candidate
         return self.extract_path                
+    
+    def find_crop_rect(self,crop):
+        rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
+        ## track by contour
+        contours,hierarchy = cv2.findContours(crop, 1, 2)
+
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+            if w>10 and h >10:
+                print("find crop", (x, y), (x + w, y + h))
+                cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.imshow("crop",rgb)
+        cv2.waitKey(0)    
     
     def match_pic(self):
         pass
@@ -259,7 +270,8 @@ class TrackBall(object):
             node_list.append(tmp)
             
         if self.ball_found:  # has ball found then limit search range
-            return self.track_path(node_list, frame_idx,test)
+            self.track_path(node_list, frame_idx,test)
+            return self.extract_path 
 
         else:
             self.find_lost_path(node_list, frame_idx)

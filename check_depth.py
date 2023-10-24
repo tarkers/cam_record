@@ -72,11 +72,11 @@ def knn_video(path):
             img = cv2.GaussianBlur(img,(3,3),0)  
             img=knn.apply(img)
             test=img.copy()
-            # contours,hierarchy = cv2.findContours(img, 1, 2)
-            # for cnt in contours:
-            #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
-            #     if w>10 and h >10:
-            #         cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            contours,hierarchy = cv2.findContours(img, 1, 2)
+            for cnt in contours:
+                x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+                if w>10 and h >10:
+                    cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
             # if tracker.ball_found:  # limit search range
             #     x,y=search_center
             #     # print(max(y-100,0),min(1050,y+100),max(x-100,0),min(1850,x+100))
@@ -233,7 +233,7 @@ def find_ball_per_frame(img):
 
 if __name__ == "__main__":
    
-    # knn_video(rf"Test\D2\Cz03_914_2023-10-15_13-06-00-828.mkv")
+    # knn_video(rf"Test\D2\Cz03_649_2023-10-15_15-00-26-108.mkv")
     knn_video(rf"Test\D2\Cz03_750_2023-10-15_13-57-12-838.mkv")
     exit()
     # knn_video(rf"D:\Chen\cam_record\Test\JAPAN vs USA _ Highlights _ Men s OQT 2023_3_1.mp4")
