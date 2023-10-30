@@ -72,11 +72,11 @@ def knn_video(path):
             img = cv2.GaussianBlur(img,(3,3),0)  
             img=knn.apply(img)
             test=img.copy()
-            contours,hierarchy = cv2.findContours(img, 1, 2)
-            for cnt in contours:
-                x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
-                if w>10 and h >10:
-                    cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            # contours,hierarchy = cv2.findContours(img, 1, 2)
+            # for cnt in contours:
+            #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+            #     if w>10 and h >10:
+            #         cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
             # if tracker.ball_found:  # limit search range
             #     x,y=search_center
             #     # print(max(y-100,0),min(1050,y+100),max(x-100,0),min(1850,x+100))
@@ -115,11 +115,11 @@ def knn_video(path):
             img = cv2.medianBlur(img,5)
             img = cv2.GaussianBlur(img,(3,3),0)
             img,key_point_xys=find_ball_per_frame(img)
-            if key_point_xys is not None:
-                for data in key_point_xys:
-                    x,y,size=data
-                    # if img[y,x,0]>0:
-                    cv2.circle(rgb, (x,y), size//2, (255,0,0), 3) 
+            # if key_point_xys is not None:
+            #     for data in key_point_xys:
+            #         x,y,size=data
+            #         # if img[y,x,0]>0:
+            #         cv2.circle(rgb, (x,y), size//2, (255,0,0), 3) 
             
             
             if len(key_point_xys) >0:
@@ -144,7 +144,11 @@ def knn_video(path):
             # cv2.imwrite(rf"Test\image\{i:05}.png",fgmask)
             # out=give_box(fgmask,frame)
             timer.toc()
-            # img=cv2.cvtColor(img,cv2.COLOR_GRAY2RGB)
+            # contours,hierarchy = cv2.findContours(img, 1, 2)
+            # for cnt in contours:
+            #     x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+            #     if w>10 and h >10:
+            #         cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(rgb, str(timer.fps), (10, 60), cv2.FONT_HERSHEY_TRIPLEX,1, (0, 0, 255), 2, cv2.LINE_AA)
             cv2.imshow("frame",rgb)
             key=cv2.waitKey(0)
