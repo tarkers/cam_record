@@ -126,7 +126,7 @@ class TrackBall(object):
         self.fake_candidate = []
         self.path_line=[]
         self.lost_chance=2
-    
+        
     def find_lost_path(self, node_list:List[NodeCandidate]  , n_f):
         '''
         check if ball candidate can be select
@@ -231,8 +231,9 @@ class TrackBall(object):
                 break
         
         
-        if  found_next:
-            return
+        if not  found_next:
+            self.ball_found=False
+        return
         
         
         self.ball_found=False
@@ -243,28 +244,34 @@ class TrackBall(object):
         ##check contour of ball
         x,y=self.extract_path[0].point
 
-        next_crop=self.crop_image(img,self.extract_path[0],30)
-        c_x,c_y=next_crop.shape[1]//2 ,next_crop.shape[0]//2   
-        cv2.imshow("previous",self.extract_path[0].image_crop)
-        cv2.waitKey(0)
-        ball_match=self.knn_match(self.extract_path[0].image_crop,next_crop)
+        
+        test_crop=self.test[max(y-50,0):min(1050,y+50),max(x-50,0):min(1850,x+50)] 
+        img_crop=img[max(y-50,0):min(1050,y+50),max(x-50,0):min(1850,x+50)] 
+        c_x,c_y=test_crop.shape[1]//2 ,test_crop.shape[0]//2   
+        candidate_rects=self.find_ball_rect(test_crop,c_x,c_y)
+        print("candidate_rects:",len(candidate_rects))
+        ball_match=self.knn_match(self.extract_path[1].image_crop,img_crop,candidate_rects)
         if len(ball_match):
             print("knn found")
             new_xy=ball_match[0]
             # ## node back to orignal size ##
             new_xy[0]+=(x-c_x)
             new_xy[1]+=(y-c_y)
-            new_xy.append(self.extract_path[0].size)
-            new_xy.image_crop=self.crop_image(img,self.extract_path[0])
+            new_xy.append(16)
+            # new_xy.append(self.extract_path[0].size)
+            print(new_xy)
             tmp = NodeCandidate(new_xy, frame_idx)
-            
+            tmp.image_crop=self.crop_image(img,self.extract_path[0])
+            cv2.imshow("previous",tmp.image_crop)
+            cv2.waitKey(0)
             self.add_new_node(tmp)
             self.ball_found=True
             return
+        return
         print("no data")
         # crop=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
         # c_x,c_y=crop.shape[1]//2 ,crop.shape[0]//2   
-        # node=self.find_ball_contour(crop,c_x,c_y)
+        # node=self.find_ball_rect(crop,c_x,c_y)
         # ## node back to orignal size ##
         # node[0]+=(x-c_x)
         # node[1]+=(y-c_y)
@@ -291,23 +298,25 @@ class TrackBall(object):
             self.new_node_candidate.append(self.extract_path[0])    # append node back to candidate
         return self.extract_path                
     
-    def find_ball_contour(self,crop,c_x,c_y):
+    def find_ball_rect(self,crop,c_x,c_y):
         rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
+        candidate_rects=[]
         ## track by contour
-        contours,hierarchy = cv2.findContours(crop, 1, 2)
-        
+        contours,hierarchy = cv2.findContours(crop, 1, 2)   
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
             bc_x,bc_y=x+w//2,y+h//2
             length=calculate_length(np.array([bc_x,bc_y]),np.array([c_x,c_y]))
-            if w >8 and h>8 and  length<20:
+            if w >8 and h>8 and  length<25:
+            # if w >8 and h>8 and  length<20:
                 print("find contour", (x, y), (x + w, y + h))        
-                self.ball_found=True
+                candidate_rects.append([x,y,w,h])
                 cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                break
-        cv2.imshow("crop",rgb)
+                
+        cv2.imshow("ball contour",rgb)
         cv2.waitKey(0)    
-        return [bc_x,bc_y,w]
+        return candidate_rects
+    
     
     def match_pic(self):
         pass
@@ -322,6 +331,8 @@ class TrackBall(object):
         return crop
     
     def match_keypoints(self, ball_candidates, frame_idx,img,test):
+        self.img=img
+        self.test=test
         if len(self.new_node_candidate) == 0:  # first input set candidate inside
             for node in ball_candidates:
                 self.node_dict[str(node + [frame_idx])] = [frame_idx, 0]
@@ -353,44 +364,65 @@ class TrackBall(object):
             # return self.traced_new_path(ball_candidates, frame_idx)
             
     
-    def knn_match(self,ball_image,next_image):
-        '''
-        need to find volley ball from next image
-        '''
-        gray_ball = cv2.cvtColor(ball_image,cv2.COLOR_BGR2GRAY) # queryImage
-        gray_image = cv2.cvtColor(next_image,cv2.COLOR_BGR2GRAY) # trainImage
-        # Initiate SIFT detector
-        sift = cv2.SIFT_create()
-        # find the keypoints and descriptors with SIFT
-        kp1, des1 = sift.detectAndCompute(gray_ball,None)
-        kp2, des2 = sift.detectAndCompute(gray_image,None)
-        # BFMatcher with default params
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des1,des2,k=2)
-        ball_match =[]
-        # # Apply ratio test
-        good = []
-        for m,n in matches:
-            if m.distance < 0.85*n.distance:
-                good.append([m])
-                img1_idx = m.queryIdx
-                img2_idx = m.trainIdx
+    # def knn_match(self,ball_image,next_image,candidate_rects):
+    #     '''
+    #     need to find volley ball from next image
+    #     '''
 
-                # x - columns
-                # y - rows
-                # Get the coordinates
-                # (x1, y1) = kp1[img1_idx].pt
-                (x2, y2) = kp2[img2_idx].pt
-                ball_match.append([int(x2), int(y2)])
-                # # Append to each list
-                # list_kp1.append((x1, y1))
-                # list_kp2.append((x2, y2))
-        # cv2.drawMatchesKnn expects list of lists as matches.
-        img3 = cv2.drawMatchesKnn(gray_ball,kp1,gray_image,kp2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,matchColor=None)
-        cv2.namedWindow("test",cv2.WINDOW_NORMAL)
-        cv2.imshow("test",img3)
-        cv2.waitKey(0)
-        print("candidate_count:",len(ball_match))
-        return ball_match
+    #     gray_ball = cv2.cvtColor(ball_image,cv2.COLOR_BGR2GRAY) # queryImage
+    #     for rect in candidate_rects:
+    #         x,y,w,h =rect
+    #         next_crop=next_image[y:y+h+5,x:x+w+5,:]
+    #         gray_image = cv2.cvtColor(next_crop,cv2.COLOR_BGR2GRAY) # trainImage
+        
+        
+    #         ##next image center
+    #         c_x,c_y=gray_image.shape[1]//2 ,gray_image.shape[0]//2   
+    #         ##find ball contour
+
+        
+    #         min_len=25
+    #         cv2.namedWindow("tests",cv2.WINDOW_NORMAL)
+    #         cv2.imshow("tests",next_image)
+            
+    #         # Initiate SIFT detector
+    #         sift = cv2.SIFT_create()
+    #         # find the keypoints and descriptors with SIFT
+    #         kp1, des1 = sift.detectAndCompute(gray_ball,None)
+    #         kp2, des2 = sift.detectAndCompute(gray_image,None)
+    #         # BFMatcher with default params
+    #         bf = cv2.BFMatcher()
+    #         matches = bf.knnMatch(des1,des2,k=2)
+    #         ball_match =[]
+    #         # # Apply ratio test
+    #         good = []
+    #         for m,n in matches:
+    #             # if m.distance < 0.85*n.distance:
+                
+    #             img1_idx = m.queryIdx
+    #             img2_idx = m.trainIdx
+            
+    #             # x - columns
+    #             # y - rows
+    #             # Get the coordinates
+    #             (x1, y1) = kp1[img1_idx].pt
+    #             (x2, y2) = kp2[img2_idx].pt
+    #             next_point=np.array([int(x2), int(y2)])
+    #             cal_len= calculate_length(next_point,np.array([c_x,c_y])) 
+               
+    #             if cal_len <min_len:
+    #                 min_len=cal_len
+    #                 ball_match=[[int(x+x2), int(y+y2)]]
+    #                 good=[[m]]
+
+    #         # cv2.drawMatchesKnn expects list of lists as matches.
+    #     img3 = cv2.drawMatchesKnn(gray_ball,kp1,gray_image,kp2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,matchColor=None)
+    #     cv2.namedWindow("test",cv2.WINDOW_NORMAL)
+    #     cv2.imshow("test",img3)
+    #     cv2.waitKey(0)
+    #     if len(ball_match)==0:
+    #         return []
+    #     print("candidate_count:",len(ball_match))
+    #     return ball_match
            
       
