@@ -325,7 +325,7 @@ class TrackBall(object):
                 n_pt=node.point     
                 dist = calculate_length(s_pt, n_pt) 
                 
-                if dist > 35 * (n_frame- s_frame) or dist < 3:
+                if dist > 40 * (n_frame- s_frame) or dist < 2:
                     continue
                 else:   # child in path
                     has_child=True
