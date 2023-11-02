@@ -4,7 +4,8 @@ from xml.dom.minicompat import NodeList
 from  numpy.linalg import norm
 import numpy as np
 import cv2
-import array
+from scipy.signal import find_peaks
+import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
 
 def calculate_length(p1, p2):
@@ -50,7 +51,7 @@ class NodeCandidate(object):
         self.parent_node = parent_node
         self.child_node = ChildNode
         
-        
+        self.ball_chance=2
         self._point = np.array(node[:2])
         self.is_on_path=False
         self.frame_id = frame_id
@@ -115,10 +116,11 @@ class TrackBall(object):
         self.ball_candidate = []
         self.track_range = {}
         self.extract_path = []
+        self.fps=fps
         self.speed_minthreshold = 0
         self.speed_maxthreshold = 10
         self.node_candidate = []  # x,y,size,frame_idx
-        self.ball_tree = []
+        self.ball_candidiates = []
         self.path_candidate = PathCandidate()
         self.node_dict = {}
         self.found_center = []
@@ -128,83 +130,7 @@ class TrackBall(object):
         self.path_line=[]
         self.lost_chance=2
         
-    def find_lost_path(self, node_list:List[NodeCandidate]  , n_f):
-        '''
-        check if ball candidate can be select
-        '''
-        s_length = len(self.ball_tree)
-        
-        for start_idx in range(s_length):
-            start_node = self.ball_tree[start_idx]
-            s_f = start_node.frame_id
-            
-            if start_node.child_node is not None :  # means it's on path
-                continue
-            
-            for next_node in node_list:  # check if can generate tracklet
-                distance = calculate_length(start_node.point, next_node.point) 
-                if distance < 1:  # not track of static object
-                    if start_node not in self.delete_node:
-                        self.delete_node.append(start_node)
-                    continue
-                if distance > 20 * min((n_f - s_f) // 2,1):  # distance too far , start node may not be real track
-                    if next_node not in self.ball_tree:
-                        self.ball_tree.append(next_node)  # next_node may be root ball node
-                    continue
-                
-                if (n_f - s_f) > 5:  # # remove lost track data 
-                    if start_node not in self.delete_node:
-                        print(f"will remove lost track: {start_node.ID}")
-                        self.delete_node.append(start_node)
-                    continue 
-                
-                if distance > 1:
-                    if next_node.parent_node is None and start_node.child_node is None:
-                        next_node.rank = start_node.rank + 1
-                        start_node.child_node = next_node
-                        next_node.parent_node = start_node
-                        if start_node.rank > 2:
-                            print(f"found ball path:{start_node.ID} {start_node.point}")
-                            self.ball_found = True
-                            ### test path ###
-                            tnp = next_node
-                            # extract_path = []
-                            test_idx = 0
-                            
-                            while tnp.parent_node is not None:
-                                tnp.is_in_path=True
-                                tmp=tnp.image_crop
-                                self.extract_path.append(tnp)
-                                self.path_line.append(tnp.point)
-                                tnp = tnp.parent_node
-                                cv2.imwrite(f"{test_idx}_t.jpg",tmp)
-                                test_idx+=1
-                            self.path_candidate.add_node(tnp)   #add the path start_node
-                    elif next_node.parent_node is not None:
-                        print("need to filter parent node")  # need to filter parent node
-                    else:
-                        print("need to filter child node")
-            if self.ball_found:
-                break            
-            
-        # remove static node
-        for node in self.delete_node:
-            self.ball_tree.remove(node)
-            print(f"{node.ID}->node_remove")
-            if node.child_node is not None:
-                child_node = node.child_node
-                node.child_node = None
-                self.ball_tree.append(child_node)  # become root node
-                tmp = node
-                print(f"{child_node.ID} is new root")
-                while tmp.child_node is not None:
-                    tmp.child_node.rank -= 1
-                    tmp = tmp.child_node
-        if self.ball_found:
-            print("found ball remove node-candidate")
-            self.ball_tree=[]
-            
-        print(f"ball candidate: {len(self.ball_tree)}")    
+   
          
 
     def add_new_node(self,new_node):
@@ -246,7 +172,7 @@ class TrackBall(object):
         x,y=self.extract_path[0].point
 
         
-        test_crop=self.test[max(y-50,0):min(1050,y+50),max(x-50,0):min(1850,x+50)] 
+        test_crop=self.mask[max(y-50,0):min(1050,y+50),max(x-50,0):min(1850,x+50)] 
         img_crop=img[max(y-50,0):min(1050,y+50),max(x-50,0):min(1850,x+50)] 
         c_x,c_y=test_crop.shape[1]//2 ,test_crop.shape[0]//2   
         candidate_rects=self.find_ball_rect(test_crop,c_x,c_y)
@@ -288,7 +214,7 @@ class TrackBall(object):
        
         if  False==True:
             self.lost_chance =2
-            self.ball_tree.append(self.extract_path[0])
+            self.ball_candidiates.append(self.extract_path[0])
             print("lost ball tracking")
 
         ## track by image
@@ -296,7 +222,7 @@ class TrackBall(object):
             pass
         else:   # we need to retrace the path
             self.ball_found=False
-            self.ball_tree.append(self.extract_path[0])    # append node back to candidate
+            self.ball_candidiates.append(self.extract_path[0])    # append node back to candidate
         return self.extract_path                
     
     def find_ball_rect(self,crop,c_x,c_y):
@@ -333,28 +259,28 @@ class TrackBall(object):
     
     def filter_candidates(self):
         pass
-    def match_keypoints(self, ball_candidates, frame_idx,img,test):
+    
+    def match_keypoints(self, ball_candidates, frame_idx,img,mask):
         self.img=img.copy()
-        self.test=test
+        self.mask=mask
         self.delete_node = []
         self.has_next = False
         node_list=[]
-        first_detect= len(self.ball_tree) == 0
+        first_detect= len(self.ball_candidiates) == 0
         
         ## generate ball candidate
         for node in ball_candidates:
-            ## check ##
-            
+            ## check ##    
             tmp = NodeCandidate(node, frame_idx)
             crop=self.crop_image(img,tmp)
-            # cv2.namedWindow("cc",cv2.WINDOW_NORMAL)  
-            # cv2.imshow("cc",crop)
             tmp.image_crop=crop
             if first_detect:
-                self.ball_tree.append(tmp)
+                self.ball_candidiates.append(tmp)
             else:
                 node_list.append(tmp)
-            
+        
+        if first_detect :   #first detection ,no set of ball
+            return self.extract_path
 
        
         
@@ -370,65 +296,159 @@ class TrackBall(object):
             # return self.traced_new_path(ball_candidates, frame_idx)
             
     
-    # def knn_match(self,ball_image,next_image,candidate_rects):
-    #     '''
-    #     need to find volley ball from next image
-    #     '''
-
-    #     gray_ball = cv2.cvtColor(ball_image,cv2.COLOR_BGR2GRAY) # queryImage
-    #     for rect in candidate_rects:
-    #         x,y,w,h =rect
-    #         next_crop=next_image[y:y+h+5,x:x+w+5,:]
-    #         gray_image = cv2.cvtColor(next_crop,cv2.COLOR_BGR2GRAY) # trainImage
+    def find_lost_path(self, node_list:List[NodeCandidate] , n_frame):
+        '''
+        check if ball candidate can be select
+        '''
+        can_lens = len(self.ball_candidiates)
+        n_len=len(node_list)
         
+        print("ball candidate now: ",can_lens)
+        self.add_new_can=[]
+        self.del_old_can=[]
         
-    #         ##next image center
-    #         c_x,c_y=gray_image.shape[1]//2 ,gray_image.shape[0]//2   
-    #         ##find ball contour
-
-        
-    #         min_len=25
-    #         cv2.namedWindow("tests",cv2.WINDOW_NORMAL)
-    #         cv2.imshow("tests",next_image)
+        for idx in range(can_lens):
+            start_node = self.ball_candidiates[idx]
+            s_pt=start_node.point
+            s_frame=start_node.frame_id
+            has_child=False
             
-    #         # Initiate SIFT detector
-    #         sift = cv2.SIFT_create()
-    #         # find the keypoints and descriptors with SIFT
-    #         kp1, des1 = sift.detectAndCompute(gray_ball,None)
-    #         kp2, des2 = sift.detectAndCompute(gray_image,None)
-    #         # BFMatcher with default params
-    #         bf = cv2.BFMatcher()
-    #         matches = bf.knnMatch(des1,des2,k=2)
-    #         ball_match =[]
-    #         # # Apply ratio test
-    #         good = []
-    #         for m,n in matches:
-    #             # if m.distance < 0.85*n.distance:
+            if (n_frame- s_frame)>4:    #node too old ,we don't need it anymore
+                self.del_old_can.append(start_node)
+                continue
+            
+            if self.ball_found:
+                break
+            
+            for n_idx in range(n_len):  ## check if find a real ball path
+                node=node_list[n_idx]
+                n_pt=node.point     
+                dist = calculate_length(s_pt, n_pt) 
                 
-    #             img1_idx = m.queryIdx
-    #             img2_idx = m.trainIdx
+                if dist > 35 * (n_frame- s_frame) or dist < 3:
+                    continue
+                else:   # child in path
+                    has_child=True
+                    print(s_pt,n_pt,dist)   
+                    if start_node.child_node is not None:
+                        sc_frame=start_node.child_node.frame_id
+                        if sc_frame == n_frame: # means need to check who is real
+                            print("need to check who is real child")     
+                    elif node.is_on_path: # means there is another tree node
+                        print("need to see who is real parent")
+                        x,y=n_pt
+                        node_xys=[x,y,node.size]
+                        tmp = NodeCandidate(node_xys, n_frame)
+                        tmp.image_crop=node.image_crop
+                    else:   ## maybe should check knn or others later 
+                       
+                        node.rank=start_node.rank+1
+                        node.parent_node=start_node
+                        start_node.child_node=node
+                        node.is_on_path=True
+                        
+                        if start_node.rank > 5:
+                            print(f"found ball path:{start_node.ID} {start_node.point}")
+                            path_line=[]
+                            path_candidate=[]
+                            ### test path ###
+                            tnp = node
+                            while tnp.parent_node is not None:
+                                print(tnp.point,tnp.rank)
+                                tmp=tnp.image_crop
+                                path_candidate.append(tnp)
+                                path_line.append(tnp.point)
+                                tnp = tnp.parent_node
+                            if self.check_ball_trajetory(path_line):
+                                self.ball_found = True
+                                while len(path_candidate):
+                                    tmp=path_candidate.pop()  
+                                    self.extract_path.append(tmp)
+                            else:   #not correct path
+                                while len(path_candidate):
+                                    tmp=path_candidate.pop()  
+                                    if tmp.rank<2 :
+                                        tmp.ball_chance -=1
+                                    else:
+                                        tmp.parent_node = None
+                                        tmp.child_node=None
+                                        tmp.rank=0
+                                self.ball_found=False
+                                
+                            # else:
+                            #     self.ball_found=False
+                            #     self.extract_path=self.extract_path[:end]
+                        
+                  
+                
+                       
+            if has_child:
+                self.del_old_can.append(start_node)
+                    
+            else:   # remove this ball candidate
+                start_node.ball_chance -=1
+                if start_node.ball_chance<=0:
+                    self.del_old_can.append(start_node)
+                    
+        for node in node_list:  ## append new candidate
+            if node not in self.ball_candidate:
+                self.ball_candidiates.append(node)    
+                               
+        ## remove old candidates ##
+        for node in self.del_old_can:
+            print("CEHCEK")
+            self.ball_candidiates.remove(node)
+            print(f"{node.ID}->node_remove")
+            if node.child_node is not None:
+                child_node = node.child_node
+                # self.ball_candidiates.append(child_node)  # become root node
+                print(f"{child_node.ID} is new root")
+                tmp = child_node
+                while tmp.child_node is not None:
+                    tmp.child_node.rank -= 1
+                    tmp = tmp.child_node
+            del node
             
-    #             # x - columns
-    #             # y - rows
-    #             # Get the coordinates
-    #             (x1, y1) = kp1[img1_idx].pt
-    #             (x2, y2) = kp2[img2_idx].pt
-    #             next_point=np.array([int(x2), int(y2)])
-    #             cal_len= calculate_length(next_point,np.array([c_x,c_y])) 
-               
-    #             if cal_len <min_len:
-    #                 min_len=cal_len
-    #                 ball_match=[[int(x+x2), int(y+y2)]]
-    #                 good=[[m]]
-
-    #         # cv2.drawMatchesKnn expects list of lists as matches.
-    #     img3 = cv2.drawMatchesKnn(gray_ball,kp1,gray_image,kp2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,matchColor=None)
-    #     cv2.namedWindow("test",cv2.WINDOW_NORMAL)
-    #     cv2.imshow("test",img3)
-    #     cv2.waitKey(0)
-    #     if len(ball_match)==0:
-    #         return []
-    #     print("candidate_count:",len(ball_match))
-    #     return ball_match
-           
-      
+    def check_ball_trajetory(self,path_line):
+        path_line=np.array(path_line)
+        y_diff_time,x_diff_time =0,0
+        
+        pass_times=max(len(path_line)//3,3) 
+        
+        for idx in range(1,len(path_line)-1):
+            d_1=np.array(path_line[idx]-path_line[idx-1])
+            
+            d_2=np.array(path_line[idx+1]-path_line[idx])
+            
+            y_diff_time+=(d_1[1]*d_2[1])<0
+            x_diff_time+=(d_1[0]*d_2[0])<0
+        print("path_line:",path_line)
+        print("y:",y_diff_time)
+        print("x:",x_diff_time)
+        
+        
+        # s = 1.0 # smoothness parameter
+        # k = 2 # spline order
+        # nest = -1 # estimate of number of knots needed (-1 = maximal)
+        # t, u = splprep([path_line[:,0], path_line[:,1]], s=s, k=k, nest=-1)
+        # # a,b,c=quadratic_coeff(path_line[-1], path_line[-2],path_line[-4])
+        # # x_test=1485
+        # # print(a * x_test**2 + b * x_test+ c)
+        # xn, yn = splev(np.linspace(0, 1, 30), t)
+        
+        # # xn,yn=path_line[:,0],path_line[:,1]
+        # # plt.plot(xn, yn, color='r', linewidth=1)
+        # peak_x, _ = find_peaks(xn, height=50)
+        # low_x, _ = find_peaks(-xn)
+        # plt.plot(xn)
+        # plt.plot(peak_x,xn[peak_x],"x")
+        # plt.plot(low_x,xn[low_x],"x")
+        
+        # peaks, _ = find_peaks(yn, height=50)
+        # peaks2, _ = find_peaks(-yn)
+        # plt.plot(yn)
+        # plt.plot(peaks,yn[peaks],"o")
+        # plt.plot(peaks2,yn[peaks2],"o")
+        # plt.show()
+        # time.sleep(2)
+        return y_diff_time<pass_times and x_diff_time<pass_times

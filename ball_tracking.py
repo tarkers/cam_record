@@ -24,7 +24,7 @@ def color_extract_mask(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     mask=cv2.inRange(hsv , (0,0,0) , (180,60,255))  # white
     blue_mask=cv2.inRange(hsv , (100,110,0) , (125,225,180))
-    mask=cv2.bitwise_or(blue_mask,mask)  #blue black color
+    mask=cv2.bitwise_or(blue_mask,mask)   # blue black color
     # mask=cv2.bitwise_not(y_mask)
     image=cv2.bitwise_and(img, img,mask=mask)
    
@@ -43,21 +43,22 @@ def do_morphologyEx(mask):
 
 def find_ball_shape(img,mask):
     mask=mask.copy()
-    mask[mask>150]=255
-    # mask=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    # img = cv2.medianBlur(img,5)
-    # img=cv2.erode(img,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=2)
-    # 
+    ret,mask = cv2.threshold(mask,85,255,cv2.THRESH_BINARY)
+    cv2.imshow("mask",mask)
+    key=cv2.waitKey(0)
+    ##testt##
+    rgb=img.copy()
+
     params = cv2.SimpleBlobDetector_Params()
     params.filterByColor = False
-    params.minThreshold = 45
+    params.minThreshold = 40
     params.maxThreshold = 95
     # params.blobColor = 254
     params.minArea = 80
     params.maxArea = 600
     params.filterByCircularity = True
     params.filterByConvexity = True
-    params.minConvexity = 0.45
+    params.minConvexity = 0.35
     params.minCircularity =.35
     params.maxCircularity = 1
     params.filterByInertia = True
@@ -70,50 +71,47 @@ def find_ball_shape(img,mask):
         x = int(keyPoint.pt[0])
         y = int(keyPoint.pt[1])
         r=int(keyPoint.size)
-        ## ckeck color of ball test ##
-        crop=img[y-r:y+r,x-r:x+r,:]
-        # c_y,c_x=crop.shape[0]//2,crop.shape[1]//2
-        # e_mask,e_img=color_extract_mask(crop)
-        # if e_mask[c_y,c_x]>50 :
-        #     key_point_xys.append([x,y,r])
-            
-        # cv2.namedWindow("cropt",cv2.WINDOW_NORMAL)  
-        cv2.namedWindow("cropt",cv2.WINDOW_NORMAL)  
-        cv2.imshow("cropt",crop)
-        key=cv2.waitKey(0)
-        # if key==27:
-        #     exit()
-
-        if mask[y,x]>50 :
+        if mask[y,x]>0 :
+            ## ckeck color of ball test ##
+            # crop=img[y-r:y+r,x-r:x+r,:]
+            # c_y,c_x=crop.shape[0]//2,crop.shape[1]//2
+            # e_mask,e_img=color_extract_mask(crop)
+            # # if e_mask[c_y,c_x]>50 :
+            # #     key_point_xys.append([x,y,r])
+                
+            # cv2.namedWindow("e_mask",cv2.WINDOW_NORMAL)  
+            # cv2.imshow("e_mask",e_img)
+            # print("cropt",y,x)
+            # key=cv2.waitKey(0)
+            # if key==27:
+            #     exit()
             key_point_xys.append([x,y,r])
-            
-       
-        
-    # print("================================================")
-    for data in key_point_xys:
-        x,y,size=data
-        if img[y,x,0]>0:
-            cv2.circle(img, (x,y), size//2, (0,0,255), 2) 
-    # cv2.drawKeypoints(img,keypoints,img,(0,0,255),cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    # cv2.imshow("test",img)
-    # key=cv2.waitKey(0)
-    # if key==27:
-    #     exit()
+            cv2.circle(rgb, (x,y), r//2, (0,0,255), 2) 
+    
+             
+    cv2.imshow("test",rgb)
+    key=cv2.waitKey(0)
+    if key==27:
+        exit()
     return img,key_point_xys
 
 def find_ball_contour(img,mask):
-    mask=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    
+    # mask=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    ret,mask = cv2.threshold(mask,100,255,cv2.THRESH_BINARY)
 
+    object_rects=[]
     img=img.copy()
     contours,hierarchy = cv2.findContours(mask, 1, 2)
     for cnt in contours:
         x,y,w,h=cv2.boundingRect(cnt)
-        c_x,c_y= (x + w)//2, (y + h)//2
-        if w>10 and h>10 :
-            cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-
-    cv2.imshow("crop",img)
-    cv2.waitKey(0)
+        c_y,c_x=  y+h//2 ,x+w//2
+        if w>8 and h>8  and mask[c_y,c_x] >0:
+            cv2.rectangle(img, (x, y), (x + w, y + h), (255, 255, 0), 3)
+            object_rects.append([x,y,w,h])
+    # cv2.imshow("crop",img)
+    # cv2.waitKey(0)
+    return img,object_rects
 
 def extract_ball_from_person(img,mask):
     e_mask,e_img=color_extract_mask(img)
@@ -128,7 +126,7 @@ def test_video(path):
     cap=cv2.VideoCapture(path)
     cv2.namedWindow("tests",cv2.WINDOW_NORMAL)  
     tracker=TrackBall()
-    knn=cv2.createBackgroundSubtractorKNN(history=400, dist2Threshold=750.0,detectShadows=True)    
+    knn=cv2.createBackgroundSubtractorKNN(history=450, dist2Threshold=650.0,detectShadows=True)    
     idx=0
     while True:
         ret,frame=cap.read()
@@ -151,6 +149,7 @@ def test_video(path):
         # img = cv2.medianBlur(img,3)
         # img=do_morphologyEx(img)
         _,ball_points=find_ball_shape(img,mask)
+        _,obj_rects=find_ball_contour(img,mask)
         if len(ball_points) >0:
             tracker.match_keypoints(ball_points,idx,img,mask)
         new_test=tracker.extract_path
@@ -170,7 +169,7 @@ def test_video(path):
         ## do this when we find a ball path ##
         # find_ball_contour(img,mask)
         if ret :
-            cv2.imshow("mask",mask)
+            # cv2.imshow("mask",mask)
             cv2.imshow("tests",img)
             # cv2.imshow("tests",color_extract(frame))
             key=cv2.waitKey(0)
