@@ -16,23 +16,22 @@ from util import Timer
 skeleton = ( (0, 7), (7, 8), (8, 9), (9, 10), (8, 11), (11, 12), (12, 13), (8, 14), (14, 15), (15, 16), (0, 1), (1, 2), (2, 3), (0, 4), (4, 5), (5, 6) )
 from mpl_toolkits.mplot3d import Axes3D # must need for plot 3d
 from libs.detector.apis import get_detector
-from track_ball import TrackBall
+from ball_nodes import TrackBall
 import skimage.measure
 
-def color_extract(img):
+def color_extract_mask(img):
     # bgr to hsv
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     mask=cv2.inRange(hsv , (0,0,0) , (180,60,255))  # white
-    mask=cv2.bitwise_or(cv2.inRange(hsv , (100,80,0) , (125,225,255)),mask)  #blue black color
+    blue_mask=cv2.inRange(hsv , (100,110,0) , (125,225,180))
+    mask=cv2.bitwise_or(blue_mask,mask)  #blue black color
     # mask=cv2.bitwise_not(y_mask)
     image=cv2.bitwise_and(img, img,mask=mask)
-    # cv2.imshow("ee",img)
-    # cv2.waitKey(0)
-    return image
+   
+    return mask,image
 
 def do_morphologyEx(mask):
-    
-    for i in range(1,2):
+    for _ in range(1,2):
         mask=cv2.dilate(mask, (3,3),iterations=2)
         # kernal=cv2.getStructuringElement(cv2.MORPH_ELLIPSE , (3,3))
         # mask=cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernal)
@@ -43,24 +42,26 @@ def do_morphologyEx(mask):
     return mask
 
 def find_ball_shape(img,mask):
+    mask=mask.copy()
+    mask[mask>150]=255
     # mask=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     # img = cv2.medianBlur(img,5)
     # img=cv2.erode(img,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=2)
     # 
     params = cv2.SimpleBlobDetector_Params()
     params.filterByColor = False
-    params.minThreshold = 35
+    params.minThreshold = 45
     params.maxThreshold = 95
     # params.blobColor = 254
     params.minArea = 80
     params.maxArea = 600
     params.filterByCircularity = True
     params.filterByConvexity = True
-    params.minConvexity = 0.35
-    params.minCircularity =.25
+    params.minConvexity = 0.45
+    params.minCircularity =.35
     params.maxCircularity = 1
     params.filterByInertia = True
-    params.minInertiaRatio = 0.45
+    params.minInertiaRatio = 0.35
     params.maxInertiaRatio = 1
     detector = cv2.SimpleBlobDetector_create(params)
     keypoints=detector.detect(mask)
@@ -68,10 +69,25 @@ def find_ball_shape(img,mask):
     for keyPoint in keypoints:
         x = int(keyPoint.pt[0])
         y = int(keyPoint.pt[1])
-        
-        # if np.count_nonzero(img[x-2:x+2,y-2:y+2] > 0) >15:
+        r=int(keyPoint.size)
+        ## ckeck color of ball test ##
+        crop=img[y-r:y+r,x-r:x+r,:]
+        # c_y,c_x=crop.shape[0]//2,crop.shape[1]//2
+        # e_mask,e_img=color_extract_mask(crop)
+        # if e_mask[c_y,c_x]>50 :
+        #     key_point_xys.append([x,y,r])
+            
+        # cv2.namedWindow("cropt",cv2.WINDOW_NORMAL)  
+        cv2.namedWindow("cropt",cv2.WINDOW_NORMAL)  
+        cv2.imshow("cropt",crop)
+        key=cv2.waitKey(0)
+        # if key==27:
+        #     exit()
+
         if mask[y,x]>50 :
-            key_point_xys.append([x,y,int(keyPoint.size)])
+            key_point_xys.append([x,y,r])
+            
+       
         
     # print("================================================")
     for data in key_point_xys:
@@ -80,9 +96,9 @@ def find_ball_shape(img,mask):
             cv2.circle(img, (x,y), size//2, (0,0,255), 2) 
     # cv2.drawKeypoints(img,keypoints,img,(0,0,255),cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     # cv2.imshow("test",img)
-    key=cv2.waitKey(0)
-    if key==27:
-        exit()
+    # key=cv2.waitKey(0)
+    # if key==27:
+    #     exit()
     return img,key_point_xys
 
 def find_ball_contour(img,mask):
@@ -99,10 +115,21 @@ def find_ball_contour(img,mask):
     cv2.imshow("crop",img)
     cv2.waitKey(0)
 
+def extract_ball_from_person(img,mask):
+    e_mask,e_img=color_extract_mask(img)
+    mask=cv2.bitwise_and(mask,e_mask) 
+    cv2.imshow("tt",mask)
+    cv2.waitKey(0)
+    find_ball_contour(e_img,mask)
+    find_ball_shape(e_img,mask)
+    
+    
 def test_video(path):
     cap=cv2.VideoCapture(path)
     cv2.namedWindow("tests",cv2.WINDOW_NORMAL)  
+    tracker=TrackBall()
     knn=cv2.createBackgroundSubtractorKNN(history=400, dist2Threshold=750.0,detectShadows=True)    
+    idx=0
     while True:
         ret,frame=cap.read()
         frame=frame[450:1050,:1850,:]
@@ -112,7 +139,8 @@ def test_video(path):
         
         mask=knn.apply(img)
         mask = cv2.medianBlur(mask,5)
-        mask=do_morphologyEx(mask)
+        mask = cv2.medianBlur(mask,3)
+        # mask=do_morphologyEx(mask)
         
         img=cv2.bitwise_and(frame, frame,mask=mask)
         
@@ -122,12 +150,27 @@ def test_video(path):
         # img = cv2.GaussianBlur(img,(5,5),0)  
         # img = cv2.medianBlur(img,3)
         # img=do_morphologyEx(img)
+        _,ball_points=find_ball_shape(img,mask)
+        if len(ball_points) >0:
+            tracker.match_keypoints(ball_points,idx,img,mask)
+        new_test=tracker.extract_path
+
+            # rect = cv2.minAreaRect(cnt)
+            # box = np.int0(cv2.boxPoints(rect))  # 矩形的四个角点取整
+            # cv2.drawContours(img, [box], 0, (255, 0, 0), 2)
+        if new_test is not None and len(new_test) > 0:
+            search_center=new_test[0].point
+            for data in new_test:
+                # if img[y,x,0]>0:
+                # if tracker.ball_found:
+                x,y=data.point
+                cv2.circle(img, (x,y), 5, (0,255,255), -1) 
         
-        cv2.imshow("tt",mask)
-        cv2.waitKey(0)
-        find_ball_contour(img,mask)
-        find_ball_shape(img,mask)
+        
+        ## do this when we find a ball path ##
+        # find_ball_contour(img,mask)
         if ret :
+            cv2.imshow("mask",mask)
             cv2.imshow("tests",img)
             # cv2.imshow("tests",color_extract(frame))
             key=cv2.waitKey(0)
@@ -136,10 +179,11 @@ def test_video(path):
 
         else:
             break
+        idx+=1
     cv2.destroyAllWindows()
 if __name__ == "__main__":
    
     # test_video(rf"Test\D2\Cz03_649_2023-10-15_15-00-26-108.mkv")
     # test_video(rf"Test\D2\Cz03_585_2023-10-15_13-15-23-539.mkv")
-    test_video(rf"Test\D2\Cz03_750_2023-10-15_13-57-12-838.mkv")
+    test_video(rf"Test\D1\Cz03_251_2023-10-14_14-36-37-620.mkv")
     exit()

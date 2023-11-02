@@ -58,7 +58,7 @@ if __name__ == "__main__":
     # Create tracker
     tracker = BoTSORT(tracker_cfg, frame_rate=60.0)
     # video=rf'test_video.mp4'
-    video=rf'Test\Cz03_715_2023-10-14_19-35-05-578.mkv'
+    video=rf'Test\test2_serve_ball.mov'
     q = webCamDetectQueue(video, test, get_detector(test),tracker)
     video_info=q.videoinfo
     video_info['name']=os.path.basename(video)
