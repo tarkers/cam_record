@@ -9,6 +9,29 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
 import collections
 
+import numpy as np
+
+
+def pooling(feature_map, size=2, stride=2):
+    channel=feature_map.shape[0]
+    height=feature_map.shape[1]
+    width=feature_map.shape[2]
+    padding_height=np.uint16(round((height-size+1)/stride))
+    padding_width=np.uint16(round((width-size+1)/stride))
+    print(padding_height,padding_width)
+
+    pool_out = np.zeros((channel,padding_height,padding_width),dtype=np.uint8)
+    
+    for map_num in range(channel):  
+        out_height = 0  
+        for r in np.arange(0,height, stride):  
+            out_width = 0  
+            for c in np.arange(0, width, stride):  
+                pool_out[map_num,out_height, out_width] = np.max(feature_map[map_num,r:r+size,c:c+size])  
+                out_width=out_width+1
+            out_height=out_height+1
+    return pool_out
+
 def calculate_length(p1, p2):
     vector = p2 - p1
     return math.ceil(math.sqrt(float(vector[0] ** 2 + vector[1] ** 2)))
@@ -45,12 +68,64 @@ def quadratic_coeff(p1,p2,p3):
 
     return a,b,c 
 
-def find_ball_rect(crop,c_x,c_y,o_x,o_y):
-
-    candidate_rects=[]
+def shape_similar_test(ball,test):
+    gray_ball = cv2.cvtColor(ball,cv2.COLOR_BGR2GRAY) 
+    gray_image = cv2.cvtColor(test,cv2.COLOR_BGR2GRAY) 
+    sift = cv2.SIFT_create()
+    # find the keypoints and descriptors with SIFT
+    kp1, des1 = sift.detectAndCompute(gray_ball,None)
+    kp2, des2 = sift.detectAndCompute(gray_image,None)
+    if len(kp1)==0 or len(kp2)==0:
+        return False
     
-    rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
+    # BFMatcher with default params
+    bf = cv2.BFMatcher()
+    matches = bf.knnMatch(des1,des2,k=2)
+   
+    # # Apply ratio test
+    good = []
+    has_match=False
+    for data in matches:
+        try:
+            m,n =data
+        except ValueError:
+            return False
+        # if m.distance < 0.85*n.distance:
+        img1_idx = m.queryIdx
+        img2_idx = m.trainIdx
+    
+        # x - columns
+        # y - rows
+        # Get the coordinates
+        (x1, y1) = kp1[img1_idx].pt
+        (x2, y2) = kp2[img2_idx].pt
+        next_point=np.array([int(x2), int(y2)])
+        if m.distance < 0.85 * n.distance:
+            has_match=True
+            good.append([m])
+
+
+    # cv2.drawMatchesKnn expects list of lists as matches.
+    img3 = cv2.drawMatchesKnn(ball,kp1,test,kp2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,matchColor=None)
+    cv2.namedWindow("knn",cv2.WINDOW_NORMAL)
+    cv2.imshow("knn",img3)
+    cv2.waitKey(0)
+    
+    return has_match
+    
+def find_ball_rect(rgb,c_x,c_y,o_x,o_y):
+    candidate_rects=[]
+    ## use this data to split block ##
+    (nb, ng, nr) = cv2.split(rgb)
+    for u in (nb, ng, nr):
+        u[u>100]=u[u>100]//5+102
+        u[u<100]=0
+    rgb=cv2.merge([nb, ng, nr])
+    #############################
+    crop=cv2.cvtColor(rgb,cv2.COLOR_BGR2GRAY)
+    # rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
     ## track by contour
+
     contours,_ = cv2.findContours(crop, 1, 2)   
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
@@ -58,9 +133,9 @@ def find_ball_rect(crop,c_x,c_y,o_x,o_y):
         c_len=calculate_length(np.array([bc_x,bc_y]),np.array([c_x,c_y]))
         # if  (w>8 and h>8 and c_len<15) or point_in_rect([c_x,c_y],[x, y, w, h]):    
         if  w>8 and h>8 and  point_in_rect([c_x,c_y],[x, y, w, h]):  
-            cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)  
+            # cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)  
             candidate_rects.append([o_x+(x-c_x),o_y+(y-c_y),w,h])
-    cv2.circle(rgb, (c_x,c_y), 5, (0,0,255), -1) 
+    # cv2.circle(rgb, (c_x,c_y), 5, (0,0,255), -1) 
     cv2.imshow("ball contour",rgb)
     cv2.waitKey(0)    
     return candidate_rects
@@ -275,7 +350,7 @@ class TrackBall(object):
                         start_node.child_node=node
                         node.is_on_path=True
                         
-                        if start_node.rank > 5:
+                        if start_node.rank > 6:
                             print(f"found ball path:{start_node.ID} {start_node.point}")
                             path_line=[]
                             path_candidate=[]
@@ -328,7 +403,10 @@ class TrackBall(object):
                     tmp.child_node.rank -= 1
                     tmp = tmp.child_node
             del node
-    
+
+        if self.ball_found:
+            self.ball_candidiates=[]
+        
     def track_path(self,node_list,obj_rects, frame_idx,img,mask=None):
         '''
         when we found ball_candidates we start to narror serch area 
@@ -354,17 +432,28 @@ class TrackBall(object):
             print("check point",(x,y))
             c_size=300
             lh,uh,lw,uw=max(0,y-c_size),min(mh,y+c_size),max(0,x-c_size),min(mw,x+c_size)
-            crop=mask[lh:uh,lw:uw]
+            crop=img[lh:uh,lw:uw]
             c_y,c_x=min(y,c_size),min(x,c_size)
             new_candidate=find_ball_rect(crop,c_x,c_y,x,y)
             if len(new_candidate):
                 print("has ttt:",len(new_candidate))
                 for cnd in new_candidate:
                     x,y,w,h=cnd
+                    ##test knn ##
                     crop_test=img[y:y+h,x:x+w,:]
-                    self.knn_match(ball_image,crop_test,c_x,c_y)
-                    cv2.imshow("t",crop_test)
-                    cv2.waitKey(0)
+                    if w <25 and h<25 and shape_similar_test(ball_image.copy(),crop_test.copy()): # this means it might just crop ball ,will change to fine point
+                        print(w,h)
+                        xys=[x+w//2,y+h//2,min(max(x//2,y//2),min(w,h))]
+                        tmp = NodeCandidate(xys, frame_idx)
+                        tmp.image_crop=self.crop_image(img,tmp)
+                        self.add_new_node(tmp)
+                    else:
+                        print("is in bigger range")
+                    # crop_test=img[y:y+h,x:x+w,:]
+                    # self.count_histograms(ball_image,crop_test)
+                    # self.count_histograms(ball_image,crop_test,c_x,c_y)
+                    # cv2.imshow("t",crop_test)
+                    # cv2.waitKey(0)
             # for cnd in new_candidate:
             #     print(cnd,[x,y])
             #     ## test ##
@@ -424,13 +513,36 @@ class TrackBall(object):
         # plt.show()
         # time.sleep(2)
 
-    def count_histograms(self,b,g,r):
-        b=b.flatten()
-        g=g.flatten()
-        r=r.flatten()
-        for data in [b,g,r]:
-            pass
-    
+    def count_histograms(self,rgb,crop):
+        (nb, ng, nr) = cv2.split(rgb)
+        (bb, bg, br) = cv2.split(crop)
+        for u in (nb, ng, nr,bb, bg, br):
+            u[u>100]=u[u>100]//5+102
+            u[u>20 and u<100]=40
+        rgb=cv2.merge([nb, ng, nr])
+        crgb=cv2.merge([bb, bg, br])
+        test=cv2.cvtColor(crgb,cv2.COLOR_BGR2GRAY)
+        contours,_ = cv2.findContours(test, 1, 2)   
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+            bc_x,bc_y=x+w//2,y+h//2
+            # c_len=calculate_length(np.array([bc_x,bc_y]),np.array([c_x,c_y]))
+            # # if  (w>8 and h>8 and c_len<15) or point_in_rect([c_x,c_y],[x, y, w, h]):    
+            if  w>8 and h>8 :  
+                cv2.rectangle(crgb, (x, y), (x + w, y + h), (0, 255, 0), 2)  
+                # candidate_rects.append([o_x+(x-c_x),o_y+(y-c_y),w,h])
+        # cv2.circle(rgb, (c_x,c_y), 5, (0,0,255), -1) 
+        cv2.namedWindow("ball",cv2.WINDOW_NORMAL)
+        cv2.imshow("ball",crgb)
+        cv2.waitKey(0)    
+        
+        # cv2.namedWindow("rgb",cv2.WINDOW_NORMAL)
+        # cv2.imshow("rgb",rgb)
+        # cv2.namedWindow("tcrop",cv2.WINDOW_NORMAL)
+        # cv2.imshow("tcrop",crgb)
+        # cv2.waitKey(0)
+        
+        
     def knn_match(self,ball_image,next_image,c_x,c_y):
         '''
         need to find volley ball from next image
@@ -442,11 +554,11 @@ class TrackBall(object):
         
         n_h = cv2.hconcat([nb, ng, nr])
         b_h = cv2.hconcat([bb, bg, br])
-        # cv2.namedWindow("n_h",cv2.WINDOW_NORMAL)
-        # cv2.imshow("n_h",n_h)
-        # cv2.namedWindow("b_h",cv2.WINDOW_NORMAL)
-        # cv2.imshow("b_h",b_h)
-        # cv2.waitKey(0)
+        cv2.namedWindow("n_h",cv2.WINDOW_NORMAL)
+        cv2.imshow("n_h",n_h)
+        cv2.namedWindow("b_h",cv2.WINDOW_NORMAL)
+        cv2.imshow("b_h",b_h)
+        cv2.waitKey(0)
         # Initiate SIFT detector
        
         return []
