@@ -7,6 +7,7 @@ import cv2
 from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
+import collections
 
 def calculate_length(p1, p2):
     vector = p2 - p1
@@ -16,6 +17,14 @@ def calculate_length(p1, p2):
 def point_to_line(p1, p2, p3):
     return norm(np.cross(p2 - p1, p1 - p3)) / norm(p2 - p1)
 
+def point_in_rect(point,rect):
+    x1, y1, w, h = rect
+    x2, y2 = x1+w, y1+h
+    x, y = point
+    if (x1 < x and x < x2):
+        if (y1 < y and y < y2):
+            return True
+    return False
 def quadratic_coeff(p1,p2,p3):
     '''
     return the nearest quadratic eauactuib 
@@ -35,6 +44,26 @@ def quadratic_coeff(p1,p2,p3):
         +y_3*x_1*x_2/((x_3-x_1)*(x_3-x_2)))
 
     return a,b,c 
+
+def find_ball_rect(crop,c_x,c_y,o_x,o_y):
+
+    candidate_rects=[]
+    
+    rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
+    ## track by contour
+    contours,_ = cv2.findContours(crop, 1, 2)   
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
+        bc_x,bc_y=x+w//2,y+h//2
+        c_len=calculate_length(np.array([bc_x,bc_y]),np.array([c_x,c_y]))
+        # if  (w>8 and h>8 and c_len<15) or point_in_rect([c_x,c_y],[x, y, w, h]):    
+        if  w>8 and h>8 and  point_in_rect([c_x,c_y],[x, y, w, h]):  
+            cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)  
+            candidate_rects.append([o_x+(x-c_x),o_y+(y-c_y),w,h])
+    cv2.circle(rgb, (c_x,c_y), 5, (0,0,255), -1) 
+    cv2.imshow("ball contour",rgb)
+    cv2.waitKey(0)    
+    return candidate_rects
 
 id_track = 0
 
@@ -133,120 +162,23 @@ class TrackBall(object):
    
          
 
+    # def add_new_node(self,new_node):
+    #     new_node.is_on_path=True
+    #     self.extract_path[0].rank = self.extract_path[0].rank + 1
+    #     self.extract_path[0].child_node = new_node
+    #     new_node.parent_node = self.extract_path[0]
+    #     self.extract_path.insert(0,new_node)
+    #     self.path_line=[new_node.point] + self.path_line
+    
     def add_new_node(self,new_node):
         new_node.is_on_path=True
-        self.extract_path[0].rank = self.extract_path[0].rank + 1
-        self.extract_path[0].child_node = new_node
-        new_node.parent_node = self.extract_path[0]
-        self.extract_path.insert(0,new_node)
-        self.path_line=[new_node.point] + self.path_line
+        last_start=self.extract_path[-1]
+        last_start.rank = last_start.rank + 1
+        last_start.child_node = new_node
+        new_node.parent_node = last_start
+        self.extract_path.append(new_node)
         
-    def track_path(self,node_list, frame_idx,img):
-        '''
-        when we found ball_candidates we start to narror serch area
-        '''
-        now_start=self.extract_path[0]
-        found_next=False
 
-        ## track by ball
-        for new_candidate in node_list:
-            distance = calculate_length(now_start.point, new_candidate.point) 
-            
-            if distance >0 and distance < 25 * min((frame_idx-now_start.frame_id ),1):
-                self.add_new_node(new_candidate)
-                found_next=True
-                break
-        
-        
-        if not  found_next:
-            self.ball_found=False
-        return
-        
-        
-        self.ball_found=False
-        # if self.lost_chance > 0 :
-        #     return
-        
-        
-        ##check contour of ball
-        x,y=self.extract_path[0].point
-
-        
-        test_crop=self.mask[max(y-50,0):min(1050,y+50),max(x-50,0):min(1850,x+50)] 
-        img_crop=img[max(y-50,0):min(1050,y+50),max(x-50,0):min(1850,x+50)] 
-        c_x,c_y=test_crop.shape[1]//2 ,test_crop.shape[0]//2   
-        candidate_rects=self.find_ball_rect(test_crop,c_x,c_y)
-        print("candidate_rects:",len(candidate_rects))
-        ball_match=self.knn_match(self.extract_path[1].image_crop,img_crop,candidate_rects)
-        if len(ball_match):
-            print("knn found")
-            new_xy=ball_match[0]
-            # ## node back to orignal size ##
-            new_xy[0]+=(x-c_x)
-            new_xy[1]+=(y-c_y)
-            new_xy.append(16)
-            # new_xy.append(self.extract_path[0].size)
-            print(new_xy)
-            tmp = NodeCandidate(new_xy, frame_idx)
-            tmp.image_crop=self.crop_image(img,self.extract_path[0])
-            cv2.imshow("previous",tmp.image_crop)
-            cv2.waitKey(0)
-            self.add_new_node(tmp)
-            self.ball_found=True
-            return
-        return
-        print("no data")
-        # crop=img[max(y-100,0):min(1050,y+100),max(x-100,0):min(1850,x+100)]
-        # c_x,c_y=crop.shape[1]//2 ,crop.shape[0]//2   
-        # node=self.find_ball_rect(crop,c_x,c_y)
-        # ## node back to orignal size ##
-        # node[0]+=(x-c_x)
-        # node[1]+=(y-c_y)
-        # if self.ball_found:
-        #     tmp=NodeCandidate(node,frame_idx)
-        #     self.add_new_node(tmp)
-        #     print("contour have found ball")
-        #     return
-        
-        
-        
-        self.lost_chance-=1
-       
-        if  False==True:
-            self.lost_chance =2
-            self.ball_candidiates.append(self.extract_path[0])
-            print("lost ball tracking")
-
-        ## track by image
-        elif False==True:
-            pass
-        else:   # we need to retrace the path
-            self.ball_found=False
-            self.ball_candidiates.append(self.extract_path[0])    # append node back to candidate
-        return self.extract_path                
-    
-    def find_ball_rect(self,crop,c_x,c_y):
-        rgb=cv2.cvtColor(crop,cv2.COLOR_GRAY2BGR)
-        candidate_rects=[]
-        ## track by contour
-        contours,hierarchy = cv2.findContours(crop, 1, 2)   
-        for cnt in contours:
-            x, y, w, h = cv2.boundingRect(cnt)  # 外接矩形
-            bc_x,bc_y=x+w//2,y+h//2
-            length=calculate_length(np.array([bc_x,bc_y]),np.array([c_x,c_y]))
-            if w >8 and h>8 and  length<25:
-            # if w >8 and h>8 and  length<20:
-                print("find contour", (x, y), (x + w, y + h))        
-                candidate_rects.append([x,y,w,h])
-                cv2.rectangle(rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
-        cv2.imshow("ball contour",rgb)
-        cv2.waitKey(0)    
-        return candidate_rects
-    
-    
-    def match_pic(self):
-        pass
 
     def crop_image(self,img,node,crop_size=None):
         if crop_size is None:
@@ -257,10 +189,9 @@ class TrackBall(object):
         crop =img[max(y-crop_size,0):min(h,y+crop_size),max(x-crop_size,0):min(w,x+crop_size)]
         return crop
     
-    def filter_candidates(self):
-        pass
+
     
-    def match_keypoints(self, ball_candidates, frame_idx,img,mask):
+    def match_keypoints(self, ball_candidates,obj_rects, frame_idx,img,mask):
         self.img=img.copy()
         self.mask=mask
         self.delete_node = []
@@ -282,12 +213,10 @@ class TrackBall(object):
         if first_detect :   #first detection ,no set of ball
             return self.extract_path
 
-       
-        
-       
             
         if self.ball_found:  # has ball found then limit search range
-            self.track_path(node_list, frame_idx,img)
+            print("check ball found")
+            self.track_path(node_list,obj_rects, frame_idx,img,mask)
             return self.extract_path 
 
         else:
@@ -323,8 +252,7 @@ class TrackBall(object):
             for n_idx in range(n_len):  ## check if find a real ball path
                 node=node_list[n_idx]
                 n_pt=node.point     
-                dist = calculate_length(s_pt, n_pt) 
-                
+                dist = calculate_length(s_pt, n_pt)     
                 if dist > 40 * (n_frame- s_frame) or dist < 2:
                     continue
                 else:   # child in path
@@ -359,7 +287,7 @@ class TrackBall(object):
                                 path_candidate.append(tnp)
                                 path_line.append(tnp.point)
                                 tnp = tnp.parent_node
-                            if self.check_ball_trajetory(path_line):
+                            if self.check_ball_trajectory(path_line):
                                 self.ball_found = True
                                 while len(path_candidate):
                                     tmp=path_candidate.pop()  
@@ -374,14 +302,7 @@ class TrackBall(object):
                                         tmp.child_node=None
                                         tmp.rank=0
                                 self.ball_found=False
-                                
-                            # else:
-                            #     self.ball_found=False
-                            #     self.extract_path=self.extract_path[:end]
-                        
-                  
-                
-                       
+                                           
             if has_child:
                 self.del_old_can.append(start_node)
                     
@@ -396,20 +317,71 @@ class TrackBall(object):
                                
         ## remove old candidates ##
         for node in self.del_old_can:
-            print("CEHCEK")
             self.ball_candidiates.remove(node)
-            print(f"{node.ID}->node_remove")
+            # print(f"{node.ID}->node_remove")
             if node.child_node is not None:
                 child_node = node.child_node
                 # self.ball_candidiates.append(child_node)  # become root node
-                print(f"{child_node.ID} is new root")
+                # print(f"{child_node.ID} is new root")
                 tmp = child_node
                 while tmp.child_node is not None:
                     tmp.child_node.rank -= 1
                     tmp = tmp.child_node
             del node
+    
+    def track_path(self,node_list,obj_rects, frame_idx,img,mask=None):
+        '''
+        when we found ball_candidates we start to narror serch area 
+        contour rect check
+        '''
+        now_start=self.extract_path[-1]
+        found_next=False
+
+        ## track by ball
+        for new_candidate in node_list:
+            distance = calculate_length(now_start.point, new_candidate.point) 
+            if distance >0 and distance < 15 * min((frame_idx-now_start.frame_id ),1):
+                self.add_new_node(new_candidate)
+                found_next=True
+                break
+        
+        
+        if not found_next:
+            self.ball_found=False
+            x,y=now_start.point
+            mh,mw=mask.shape
+            ball_image=now_start.image_crop
+            print("check point",(x,y))
+            c_size=300
+            lh,uh,lw,uw=max(0,y-c_size),min(mh,y+c_size),max(0,x-c_size),min(mw,x+c_size)
+            crop=mask[lh:uh,lw:uw]
+            c_y,c_x=min(y,c_size),min(x,c_size)
+            new_candidate=find_ball_rect(crop,c_x,c_y,x,y)
+            if len(new_candidate):
+                print("has ttt:",len(new_candidate))
+                for cnd in new_candidate:
+                    x,y,w,h=cnd
+                    crop_test=img[y:y+h,x:x+w,:]
+                    self.knn_match(ball_image,crop_test,c_x,c_y)
+                    cv2.imshow("t",crop_test)
+                    cv2.waitKey(0)
+            # for cnd in new_candidate:
+            #     print(cnd,[x,y])
+            #     ## test ##
+            #     x,y,w,h=cnd
+            #     xys=[x+w//2,y+h//2,min(max(x//2,y//2),now_start.size)]
+            #     tmp = NodeCandidate(xys, frame_idx)
+            #     crop=self.crop_image(img,tmp)
+            #     self.add_new_node(tmp)
+                self.ball_found=True
             
-    def check_ball_trajetory(self,path_line):
+        if not self.ball_found:
+            print("no found path data")
+        return
+    
+
+    
+    def check_ball_trajectory(self,path_line):
         path_line=np.array(path_line)
         y_diff_time,x_diff_time =0,0
         
@@ -422,11 +394,11 @@ class TrackBall(object):
             
             y_diff_time+=(d_1[1]*d_2[1])<0
             x_diff_time+=(d_1[0]*d_2[0])<0
-        print("path_line:",path_line)
-        print("y:",y_diff_time)
-        print("x:",x_diff_time)
+        # print("path_line:",path_line)
+        # print("y:",y_diff_time)
+        # print("x:",x_diff_time)
         
-        
+        return y_diff_time<pass_times and x_diff_time<pass_times
         # s = 1.0 # smoothness parameter
         # k = 2 # spline order
         # nest = -1 # estimate of number of knots needed (-1 = maximal)
@@ -451,4 +423,30 @@ class TrackBall(object):
         # plt.plot(peaks2,yn[peaks2],"o")
         # plt.show()
         # time.sleep(2)
-        return y_diff_time<pass_times and x_diff_time<pass_times
+
+    def count_histograms(self,b,g,r):
+        b=b.flatten()
+        g=g.flatten()
+        r=r.flatten()
+        for data in [b,g,r]:
+            pass
+    
+    def knn_match(self,ball_image,next_image,c_x,c_y):
+        '''
+        need to find volley ball from next image
+        '''
+        (nb, ng, nr) = cv2.split(next_image)
+        (bb, bg, br) = cv2.split(ball_image)
+        gray_next = cv2.cvtColor(next_image,cv2.COLOR_BGR2GRAY) # queryImage
+        gray_ball = cv2.cvtColor(ball_image,cv2.COLOR_BGR2GRAY) # queryImage
+        
+        n_h = cv2.hconcat([nb, ng, nr])
+        b_h = cv2.hconcat([bb, bg, br])
+        # cv2.namedWindow("n_h",cv2.WINDOW_NORMAL)
+        # cv2.imshow("n_h",n_h)
+        # cv2.namedWindow("b_h",cv2.WINDOW_NORMAL)
+        # cv2.imshow("b_h",b_h)
+        # cv2.waitKey(0)
+        # Initiate SIFT detector
+       
+        return []

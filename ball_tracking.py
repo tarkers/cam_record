@@ -43,9 +43,7 @@ def do_morphologyEx(mask):
 
 def find_ball_shape(img,mask):
     mask=mask.copy()
-    ret,mask = cv2.threshold(mask,85,255,cv2.THRESH_BINARY)
-    cv2.imshow("mask",mask)
-    key=cv2.waitKey(0)
+    _,mask = cv2.threshold(mask,85,255,cv2.THRESH_BINARY)
     ##testt##
     rgb=img.copy()
 
@@ -86,31 +84,31 @@ def find_ball_shape(img,mask):
             # if key==27:
             #     exit()
             key_point_xys.append([x,y,r])
-            cv2.circle(rgb, (x,y), r//2, (0,0,255), 2) 
+            cv2.circle(rgb, (x,y), r//2, (0,0,255), 3) 
     
              
-    cv2.imshow("test",rgb)
-    key=cv2.waitKey(0)
-    if key==27:
-        exit()
-    return img,key_point_xys
+    # cv2.imshow("test",rgb)
+    # key=cv2.waitKey(0)
+    # if key==27:
+    #     exit()
+    return rgb,key_point_xys
 
 def find_ball_contour(img,mask):
     
     # mask=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    ret,mask = cv2.threshold(mask,100,255,cv2.THRESH_BINARY)
+    _,mask = cv2.threshold(mask,100,255,cv2.THRESH_BINARY)
 
     object_rects=[]
     img=img.copy()
-    contours,hierarchy = cv2.findContours(mask, 1, 2)
+    contours,_ = cv2.findContours(mask, 1, 2)
     for cnt in contours:
         x,y,w,h=cv2.boundingRect(cnt)
         c_y,c_x=  y+h//2 ,x+w//2
-        if w>8 and h>8  and mask[c_y,c_x] >0:
-            cv2.rectangle(img, (x, y), (x + w, y + h), (255, 255, 0), 3)
+        if w>8 and h>8 :
+            cv2.rectangle(img, (x, y), (x + w, y + h), (255, 255, 0), 1)
             object_rects.append([x,y,w,h])
-    # cv2.imshow("crop",img)
-    # cv2.waitKey(0)
+    cv2.imshow("crop",img)
+    cv2.waitKey(0)
     return img,object_rects
 
 def extract_ball_from_person(img,mask):
@@ -148,12 +146,12 @@ def test_video(path):
         # img = cv2.GaussianBlur(img,(5,5),0)  
         # img = cv2.medianBlur(img,3)
         # img=do_morphologyEx(img)
-        _,ball_points=find_ball_shape(img,mask)
-        _,obj_rects=find_ball_contour(img,mask)
+        
+        test_image,ball_points=find_ball_shape(img,mask)
+        _,obj_rects=find_ball_contour(test_image,mask)
         if len(ball_points) >0:
-            tracker.match_keypoints(ball_points,idx,img,mask)
+            tracker.match_keypoints(ball_points,obj_rects,idx,img,mask)
         new_test=tracker.extract_path
-
             # rect = cv2.minAreaRect(cnt)
             # box = np.int0(cv2.boxPoints(rect))  # 矩形的四个角点取整
             # cv2.drawContours(img, [box], 0, (255, 0, 0), 2)
