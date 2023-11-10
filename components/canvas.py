@@ -187,13 +187,13 @@ class Canvas(FigureCanvas):
         img = img.copy()
 
         ## draw point
-        left_points = self.knee_keypoints[frame_idx, :3, :2]
-        right_points = self.knee_keypoints[frame_idx, 3:, :2]
+        left_points = self.knee_keypoints[frame_idx, 3:, :2]
+        right_points = self.knee_keypoints[frame_idx, :3, :2]
         for lp, rp in zip(left_points, right_points):
             cv2.circle(img, lp, 3, self.cfg["Pose3D"]["Left"]["Color"], 1)
             cv2.circle(img, rp, 3, self.cfg["Pose3D"]["Right"]["Color"], 1)
 
-        ##draw line
+        ## draw line
         for i in range(2):
             cv2.line(
                 img,

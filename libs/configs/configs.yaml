@@ -1,6 +1,7 @@
-DIR_VIDEO: 'Data'
+# DIR_VIDEO: 'Data'
 
 CHART:
+  DIR_VIDEO: 'Data'
   VICON:
     Left: 
       Color:  !!python/tuple [0,0,255]
