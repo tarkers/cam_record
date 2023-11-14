@@ -25,9 +25,10 @@ CHART:
       Color: !!python/tuple [34 ,139 ,34]
       Name: "3D Right Angle"
 
-
-mode: "webcam"
-device: "0"
+COMMON:
+  mode: "webcam"
+  device: "0"
+  gpus: [0]
 
 Writer:
   sp: False

@@ -42,7 +42,11 @@ class YOLODetector(BaseDetector):
 
         self.detector_cfg = cfg
         self.detector_opt = opt
-        
+        self.detector_opt.gpus = (
+        opt.gpus
+        if torch.cuda.device_count() >= 1
+        else [-1]
+        )
         self.model_cfg = opt.CONFIG
         # self.model_weights = opt.get('WEIGHTS', 'detector/yolo/data/yolov3-spp.weights')
         self.inp_dim = opt.INP_DIM
