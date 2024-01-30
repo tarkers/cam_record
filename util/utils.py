@@ -55,6 +55,13 @@ POSE3D = {
     "RWrist":"右手腕",
 }
 
+def camera_alignment(image, square_w=30):
+    h, w, ch = image.shape
+    for i in range(0, w, square_w):
+        image = cv2.line(image, (i, 0),  (i, h), (0, 255, 0), 1)
+    for y in range(0, h, square_w):
+        image = cv2.line(image, (0, y), (w, y), (0, 255, 0), 1)
+    return image
 
 def video_to_frame(input_video_path, start_frame=0, end_frame=2000):
     """Return video_image,fps,count"""

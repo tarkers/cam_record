@@ -3,7 +3,7 @@ from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
 import time
 import numpy as np
 import queue
-from util import pose3d_generator
+
 
 ## custom
 from util.enumType import ERRORTYPE
@@ -188,35 +188,7 @@ class LoadingThread(QThread):
         print("isFinished loading thread")
 
 
-class Pose3DThread(QThread):
-    fire_signal = pyqtSignal(np.ndarray)
-    finish_signal = pyqtSignal()
-    run_flag = True
 
-    def init_data(self, pose3d_model:pose3d_generator=None):
-        self.q = queue.Queue()
-        self.pose3d_model = pose3d_model
-        
-
-    def run(self):
-        # capture from web cam
-
-        self._run_flag = True
-        while self._run_flag:
-            self.fire_signal.emit()
-            self.msleep(100)
-
-        print("stop loading isFinished!!")
-
-    def stop(self):
-        """Sets run flag to False and waits for thread to finish"""
-        self._run_flag = False
-        print("stop loading thread!!")
-
-    def isFinished(self):
-        print("isFinished loading thread")
-
-
-if __name__ == "__main__":
-    test = RealsenseThread()
-    test.start()
+# if __name__ == "__main__":
+#     test = RealsenseThread()
+#     test.start()

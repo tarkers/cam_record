@@ -10,14 +10,14 @@ from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
 import numpy as np
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QStyleFactory
-from components import RealsenseThread, VideoThread
+from src.stream import RealsenseThread, VideoThread
 from datetime import datetime
 import os
 import pathlib
 
 ##custom
 from util.utils import update_config, video_to_frame, load_json, load_3d_angles
-from components import MessageBox, Loading, Clock, Canvas
+from src import MessageBox, Loading, Clock, Canvas
 import yaml
 
 CFG=update_config(r"libs\configs\configs.yaml").CHART
