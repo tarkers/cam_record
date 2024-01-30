@@ -1,15 +1,44 @@
-import json
-import pathlib
-import glob
-from util.pose3d_generator import Pose3DGenerator
-from util import update_config
-if __name__ == "__main__":
-    videoinfo = {"fourcc": 2, "fps": 60, "frameSize": [1920,1080]}
-    pose3d_cfg = update_config(r"libs\configs\configs.yaml").Pose3D
-    test=Pose3DGenerator(videoinfo,pose3d_cfg)
-    json_paths=glob.glob(rf"Test\test2_serve_ball\subject_2D\ids\*.json")
-    # file_basename='Ptz02_Fps060_20230926_191002_C001_T0332_0345'
-    # test.preprocess_skeletons(rf"C:\Users\CHEN_KU\Desktop\github\cam_record\Test\subject_2D\14.json",file_basename,'./Test')
-    for js_path in json_paths:
-        file_basename='test2_serve_ball'
-        test.preprocess_skeletons(js_path,file_basename,rf'Test\test2_serve_ball')
+import numpy as np 
+import pandas as pd
+POSE2D={"Nose":"鼻子",
+    "LEye":"左眼",
+    "REye":"右眼",
+    "LEar":"左耳",
+    "REar":"右耳",
+    "LShoulder":"左肩",
+    "RShoulder":"右肩",
+    "LElbow":"左手肘",
+    "RElbow":"右手肘",
+    "LWrist":"左手腕",
+    "RWrist":"右手腕",
+    "LHip":"左臀",
+    "RHip":"右臀",
+    "LKnee":"左膝",
+    "Rknee":"右膝",
+    "LAnkle":"左腳踝",
+    "RAnkle":"右腳踝",
+    "Head":"頭部",
+    "Neck":"脖子",
+    "Hip":"臀部中心",
+    "LBigToe":"左大拇指",
+    "RBigToe":"右大拇指",
+    "LSmallToe":"左腳小指",
+    "RSmallToe":"右腳小指",
+    "LHeel":"左腳跟",
+    "RHeel":"右腳跟"}
+
+def create_2D_csv(data=None):
+    first_header = (
+        ["ImageID"] + ["ID"] + ["BBox"] * 4 + list(np.repeat(np.array([list(POSE2D.keys())]), 3))
+    )
+    second_header = (
+        ["ID"] + ["ID"] + ["X", "Y", "W", "H"] + ["X", "Y", "Confidence"] * len(list(POSE2D.keys()))
+    )
+
+    array = [first_header] + [second_header]
+    header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
+    df = pd.DataFrame(data, columns=header)
+    return df
+
+print(POSE2D.keys())
+create_2D_csv()

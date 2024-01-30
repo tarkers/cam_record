@@ -10,7 +10,7 @@ from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
 import numpy as np
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QStyleFactory
-from stream import RealsenseThread, VideoThread
+from components import RealsenseThread, VideoThread
 from datetime import datetime
 import os
 import pathlib
@@ -335,8 +335,8 @@ class Ui(QMainWindow, Ui_MainWindow):
     def closeEvent(self, event):
         result = QMessageBox.question(
             self,
-            "Confirm Exit...",
-            "Are you sure you want to exit ?",
+            "離開",
+            "確定要離開 ?",
             QMessageBox.Yes | QMessageBox.No,
         )
         event.ignore()

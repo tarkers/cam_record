@@ -8,13 +8,13 @@ from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
 import numpy as np
 from PyQt5.QtWidgets import QMainWindow
 from Ui_stream import Ui_MainWindow
-from stream import RealsenseThread, VideoThread
+
 from datetime import datetime
 import os
 import pathlib
 ##custom
 from util.utils import DataType ,video_to_frame
-
+from components import RealsenseThread, VideoThread
 #set 1280 720
 ## test read css style ##
 with open('util\stream_style.css') as f:

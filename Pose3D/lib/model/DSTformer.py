@@ -180,7 +180,7 @@ class Attention(nn.Module):
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
-
+        # print("spatial",q.shape, k.shape, v.shape)
         x = attn @ v
         x = x.transpose(1,2).reshape(B, N, C*self.num_heads)
         return x
@@ -190,7 +190,7 @@ class Attention(nn.Module):
         qt = q.reshape(-1, seqlen, self.num_heads, N, C).permute(0, 2, 3, 1, 4) #(B, H, N, T, C)
         kt = k.reshape(-1, seqlen, self.num_heads, N, C).permute(0, 2, 3, 1, 4) #(B, H, N, T, C)
         vt = v.reshape(-1, seqlen, self.num_heads, N, C).permute(0, 2, 3, 1, 4) #(B, H, N, T, C)
-
+        # print("temporal",qt.shape, kt.shape, vt.shape)
         attn = (qt @ kt.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
@@ -347,13 +347,17 @@ class DSTformer(nn.Module):
             x_ts = blk_ts(x, F)
             if self.att_fuse:
                 att = self.ts_attn[idx]
+               
                 alpha = torch.cat([x_st, x_ts], dim=-1)
                 BF, J = alpha.shape[:2]
                 alpha = att(alpha)
+                
                 alpha = alpha.softmax(dim=-1)
+               
                 x = x_st * alpha[:,:,0:1] + x_ts * alpha[:,:,1:2]
             else:
                 x = (x_st + x_ts)*0.5
+       
         x = self.norm(x)
         x = x.reshape(B, F, J, -1)
         x = self.pre_logits(x)         # [B, F, J, dim_feat]

@@ -26,8 +26,7 @@ CHART:
       Name: "3D Right Angle"
 
 
-mode: "webcam"
-device: "0"
+
 
 Writer:
   sp: False

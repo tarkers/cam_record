@@ -16,9 +16,8 @@ import torch.multiprocessing as mp
 
 from tracker.mc_bot_sort import BoTSORT
 from util import update_config
-from util.webcam_queue import webCamDetectQueue
-from util.pose_queue import Pose2DQueue
-from util.writer_queue import WriterDQueue
+from util import webCamDetectQueue,Pose2DQueue,WriterDQueue
+
 from libs.detector.apis import get_detector
 from util import Timer
 

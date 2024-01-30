@@ -1,18 +1,19 @@
+#pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
 #conda install -c conda-forge faiss-gpu
 ##
 # install cython box 
 # python setup.py build_ext install
 ##
+tensorboardX
 lap
 yacs
 ## fast reid
 matplotlib
 scipy
 Pillow
-numpy
+numpy==1.23.5
 prettytable
 easydict
-scikit-learn
 pyyaml
 yacs
 termcolor
@@ -20,10 +21,7 @@ tabulate
 tensorboard
 opencv-python
 pyyaml
-yacs
-termcolor
 scikit-learn
-tabulate
 gdown
-
+PyQt5
 seaborn

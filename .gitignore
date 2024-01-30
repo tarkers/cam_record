@@ -17,4 +17,7 @@ remind.txt
 ./fast_reid/pretrained/pretrained/*
 Test
 *.mp4
+*.zip
+*.pth
+*.pt
 

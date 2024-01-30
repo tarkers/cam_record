@@ -1,4 +1,10 @@
-
+COMMON:
+  mode: "webcam"
+  device: "0"
+  gpus: [0]
+  tracking: True
+  ROOT_DIR: C:/Users/65904/Desktop/Train_VIT/cam_record
+  
 CHART:
   DIR_VIDEO: 'Data'
   VICON:
@@ -25,10 +31,7 @@ CHART:
       Color: !!python/tuple [34 ,139 ,34]
       Name: "3D Right Angle"
 
-COMMON:
-  mode: "webcam"
-  device: "0"
-  gpus: [0]
+
 
 Writer:
   sp: False
@@ -38,23 +41,21 @@ Writer:
   vis_video: True
 
 Detector:
-  tracking: True
   detector: "yolov7"
   detbatch: 5
   detect_classes: [0] #filter class
   INP_DIM: 640
   NMS_THRES:  0.5
   CONFIDENCE:  0.75
+  IOUTHRES: 0.45
   NUM_CLASSES:   80
   CLASS_CANDIDATE_NUM: 5 
   CONFIG: 'detector/yolo/cfg/yolov3-spp.cfg'
-  WEIGHTS: 'detector/yolo/data/yolov3-spp.weights'
-  weights: './libs/detector/yolov7/data/yolov7.pt'
+  WEIGHTS: './libs/detector/yolov7/data/yolov7.pt'
   min_box_area: 10
-  augment: False
   exist_ok: False
   trace: True
-
+  augment: False
   
   DATA_PRESET:
     TYPE: 'simple'
@@ -159,8 +160,10 @@ TRACKER:
 
 
 Pose2D:
-  checkpoint: "libs/pose2D/models/halpe26_fast_res50_256x192.pth"
+  # checkpoint: "libs/pose2D/models/halpe26_fast_res50_256x192.pth"
+  checkpoint: "libs/pose2D/models/Vitpose_epoch_60_F10.pth"
   posebatch: 64
+  min_box_area: 0
   sp: False
   flip: False
   DATASET:

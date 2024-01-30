@@ -7,14 +7,17 @@ import numpy as np
 import torch
 import torch.multiprocessing as mp
 import time
+
 ## our folder##
 
 from libs.pose2D.models import builder
 from libs.transforms import flip
 from libs.pose2D.utils.pPose_nms import pose_nms
 from libs.pose2D.utils.transforms import get_func_heatmap_to_coord
+from util.timer import time_synchronized
 
 EVAL_JOINTS = range(17)
+
 
 class Pose2DQueue:
     """
@@ -23,22 +26,26 @@ class Pose2DQueue:
 
     def __init__(self, cfg):
         self.cfg = cfg
-        self.all_results=[]
+        self.all_results = []
         self.pause_stream = False
         self.eval_joints = EVAL_JOINTS
         self.queueSize = 150 if self.cfg.mode == "webcam" else self.cfg.qsize
         self.pose_queueSize = 243
         self.batchSize = self.cfg.posebatch
-        self.norm_type = None   #for evaluate set None
+        self.norm_type = None  # for evaluate set None
         self.hm_size = self.cfg.DATA_PRESET.HEATMAP_SIZE
-        self.use_heatmap_loss = (self.cfg.DATA_PRESET.get('LOSS_TYPE', 'MSELoss') == 'MSELoss')
+        self.use_heatmap_loss = (
+            self.cfg.DATA_PRESET.get("LOSS_TYPE", "MSELoss") == "MSELoss"
+        )
         self.heatmap_to_coord = get_func_heatmap_to_coord(cfg)
+
         if self.cfg.flip:
             self.batchSize = int(self.batchSize / 2)
 
         # self._sigma = cfg.DATA_PRESET.SIGMA
-        self.device='cuda' if self.cfg.device!="cpu" else "cpu"
-        self.model=None
+        self.device = "cuda" if self.cfg.device != "cpu" else "cpu"
+        self.model = None
+        self.pose_fps = 0
         # initialize the queue used to store data
         """
         pose_queue: the buffer storing  cropped human image for pose estimation
@@ -54,40 +61,36 @@ class Pose2DQueue:
             self.pose_queue = mp.Queue(maxsize=self.pose_queueSize)
 
     def load_model(self):
-        self.model = builder.build_sppe(
-            self.cfg.MODEL, preset_cfg=self.cfg.DATA_PRESET
-        )
+        self.model = builder.build_sppe(self.cfg.MODEL, preset_cfg=self.cfg.DATA_PRESET)
         print("Loading pose model from %s..." % (self.cfg.checkpoint,))
         self.model.load_state_dict(
             torch.load(self.cfg.checkpoint, map_location=self.device)
         )
-        # pose_dataset = builder.retrieve_dataset(self.cfg.DATASET.TRAIN)
-        # if self.cfg.pose_track:       #init pose track
-        #     tracker = Tracker(tcfg, args)
+
         if len(self.cfg.gpus) > 1:
-            self.model = torch.nn.DataParallel(
-                self.model, device_ids=self.cfg.gpus
-            ).to(self.device)
+            self.model = torch.nn.DataParallel(self.model, device_ids=self.cfg.gpus).to(
+                self.device
+            )
         else:
             self.model.to(self.device)
         self.model.eval()
-        
-        
-    def start_worker(self, target,box_queue,pose_queue):
-       
+
+    def start_worker(self, target, box_queue, pose_queue):
         if self.cfg.sp:
-            p = Thread(target=target, args=(box_queue,pose_queue))
+            p = Thread(target=target, args=(box_queue, pose_queue))
         else:
-            p = mp.Process(target=target, args=(box_queue,pose_queue))
+            p = mp.Process(target=target, args=(box_queue, pose_queue))
         # p.daemon = True
         p.start()
         return p
 
-    def start(self,box_queue,pose_queue):
+    def start(self, box_queue, pose_queue):
         """
         start a thread to  process  pose estimation
         """
-        image_preprocess_worker = self.start_worker(self.image_process,box_queue,pose_queue)
+        image_preprocess_worker = self.start_worker(
+            self.image_process, box_queue, pose_queue
+        )
         return [image_preprocess_worker]
 
     def stop(self):
@@ -110,14 +113,13 @@ class Pose2DQueue:
     def clear(self, queue):
         while not queue.empty():
             queue.get()
-    
-    def box_put(self,item):
-        self.wait_and_put(self.box_queue,item)
-    
+
+    def box_put(self, item):
+        self.wait_and_put(self.box_queue, item)
+
     def pose_read(self):
         return self.wait_and_get(self.pose_queue)
-          
-    
+
     def wait_and_put(self, queue, item):
         if not self.stopped:
             queue.put(item)
@@ -126,7 +128,7 @@ class Pose2DQueue:
         if not self.stopped and not queue.empty():
             return queue.get()
 
-    def image_process(self,box_queue,pose_queue):
+    def image_process(self, box_queue, pose_queue):
         # box_queue,pose_queue=args
         if not self.model:
             self.load_model()
@@ -137,44 +139,39 @@ class Pose2DQueue:
                     print("pose queue is stopped!!")
                     return
 
-                if not box_queue.full() and not self.pause_stream: 
+                if not box_queue.full() and not self.pause_stream:
                     # inps=self.wait_and_get(self.box_queue)
-                    item=box_queue.get()
-                    if item is  None :
+                    item = box_queue.get()
+                    if item is None:
                         continue
-                    if item[0] ==None:  # bbox queue is empty
+                    if item[0] == None:  # bbox queue is empty
                         print("bbox queue is empty")
                         break
                     # print("BOX GET:",item[2],flush=True)
-                    
 
-                    (orig_img,result)=self.pose_estimation(item) # (im_name,result)
-                    pose_queue.put((orig_img,result))
+                    (orig_img, result) = self.pose_estimation(item)  # (im_name,result)
+                    pose_queue.put((orig_img, result))
                     # print("POSE PUT:",result['imgname'],flush=True)
                 else:
                     print("pose is full")
             ## put terminate data for pose queue###
             print("terminate pose queue")
             self.terminate()
-            pose_queue.put((None,None))
-            print("POSE PUT:",'terminate ')
-            
-    def pose_estimation(self,item):
-        (inps,orig_img, im_name,class_ids,
-                        boxes,
-                        scores,
-                        ids,
-                        cropped_boxes)=item
-        inps = inps.to(self.device)
-       
+            pose_queue.put((None, None))
+            print("POSE PUT:", "terminate ")
+
+    def pose_estimation(self, item):
+        (inps, orig_img, im_name, class_ids, boxes, scores, ids, cropped_boxes) = item
+        inps = inps.to(self.device)  # [1,3,256,192]
+
         datalen = inps.size(0)
         leftover = 0
         if (datalen) % self.batchSize:
             leftover = 1
         num_batches = datalen // self.batchSize + leftover
         hm = []
-        
 
+        t1 = time_synchronized()
         for j in range(num_batches):
             inps_j = inps[j * self.batchSize : min((j + 1) * self.batchSize, datalen)]
             # if self.cfg.flip:
@@ -188,28 +185,28 @@ class Pose2DQueue:
             #         hm_j[int(len(hm_j) / 2) :], self.joint_pairs, shift=True
             #     )
             #     hm_j = (hm_j[0 : int(len(hm_j) / 2)] + hm_j_flip) / 2
-            
+
             hm.append(hm_j)
+
         hm = torch.cat(hm)
+
         hm = hm.cpu()
-        
-        
+
         assert hm.dim() == 4
 
         ## check keypoints ##
         face_hand_num = 110
         if hm.size()[1] == 136:
-            self.eval_joints = [*range(0,136)]
+            self.eval_joints = [*range(0, 136)]
         elif hm.size()[1] == 26:
-            self.eval_joints = [*range(0,26)]
+            self.eval_joints = [*range(0, 26)]
         elif hm.size()[1] == 133:
-            self.eval_joints = [*range(0,133)]
+            self.eval_joints = [*range(0, 133)]
         elif hm.size()[1] == 68:
             face_hand_num = 42
-            self.eval_joints = [*range(0,68)]
+            self.eval_joints = [*range(0, 68)]
         elif hm.size()[1] == 21:
-            self.eval_joints = [*range(0,21)]
-        
+            self.eval_joints = [*range(0, 21)]
 
         pose_coords = []
         pose_scores = []
@@ -217,52 +214,77 @@ class Pose2DQueue:
             bbox = cropped_boxes[i].tolist()
             if isinstance(self.heatmap_to_coord, list):
                 pose_coords_body_foot, pose_scores_body_foot = self.heatmap_to_coord[0](
-                    hm[i][self.eval_joints[:-face_hand_num]], bbox, hm_shape=self.hm_size, norm_type=self.norm_type)
+                    hm[i][self.eval_joints[:-face_hand_num]],
+                    bbox,
+                    hm_shape=self.hm_size,
+                    norm_type=self.norm_type,
+                )
                 pose_coords_face_hand, pose_scores_face_hand = self.heatmap_to_coord[1](
-                    hm[i][self.eval_joints[-face_hand_num:]], bbox, hm_shape=self.hm_size, norm_type=self.norm_type)
-                pose_coord = np.concatenate((pose_coords_body_foot, pose_coords_face_hand), axis=0)
-                pose_score = np.concatenate((pose_scores_body_foot, pose_scores_face_hand), axis=0)
+                    hm[i][self.eval_joints[-face_hand_num:]],
+                    bbox,
+                    hm_shape=self.hm_size,
+                    norm_type=self.norm_type,
+                )
+                pose_coord = np.concatenate(
+                    (pose_coords_body_foot, pose_coords_face_hand), axis=0
+                )
+                pose_score = np.concatenate(
+                    (pose_scores_body_foot, pose_scores_face_hand), axis=0
+                )
             else:
-                pose_coord, pose_score = self.heatmap_to_coord(hm[i][self.eval_joints], bbox, hm_shape=self.hm_size, norm_type=self.norm_type)
+                pose_coord, pose_score = self.heatmap_to_coord(
+                    hm[i][self.eval_joints],
+                    bbox,
+                    hm_shape=self.hm_size,
+                    norm_type=self.norm_type,
+                )
             pose_coords.append(torch.from_numpy(pose_coord).unsqueeze(0))
             pose_scores.append(torch.from_numpy(pose_score).unsqueeze(0))
         preds_img = torch.cat(pose_coords)
         preds_scores = torch.cat(pose_scores)
-        boxes, scores, ids, preds_img, preds_scores, pick_ids = \
-            pose_nms(boxes, scores, ids, preds_img, preds_scores, self.cfg.min_box_area, use_heatmap_loss=self.use_heatmap_loss)
-
+        
+        boxes, scores, ids, preds_img, preds_scores, pick_ids = pose_nms(
+            boxes,
+            scores,
+            ids,
+            preds_img,
+            preds_scores,
+            self.cfg.min_box_area,
+            use_heatmap_loss=self.use_heatmap_loss,
+        )
 
         ## perpare resultes
         _result = []
         for k in range(len(scores)):
             _result.append(
                 {
-                    'keypoints':preds_img[k],
-                    'kp_score':preds_scores[k],
-                    'proposal_score': torch.mean(preds_scores[k]) + scores[k] + 1.25 * max(preds_scores[k]),
-                    'idx':ids[k],
-                    'class_id':class_ids[k],
-                    'box':[boxes[k][0], boxes[k][1], boxes[k][2]-boxes[k][0],boxes[k][3]-boxes[k][1]] ,
+                    "keypoints": preds_img[k],
+                    "kp_score": preds_scores[k],
+                    "proposal_score": torch.mean(preds_scores[k])
+                    + scores[k]
+                    + 1.25 * max(preds_scores[k]),
+                    "idx": ids[k],
+                    "class_id": class_ids[k],
+                    "box": [
+                        boxes[k][0],
+                        boxes[k][1],
+                        boxes[k][2] - boxes[k][0],
+                        boxes[k][3] - boxes[k][1],
+                    ],
                 }
             )
 
-        result = {
-            'imgname': im_name,
-            'result': _result
-        }
-
+        result = {"imgname": im_name, "result": _result}
+        t2 = time_synchronized()
+        self.pose_fps = round((1 / max((t2 - t1), 0.000001)), 2)
         if scores:
-            return (orig_img,result) 
+            return (orig_img, result), self.pose_fps
         else:
-            return (orig_img,None)  #not have pose for the bounding box
-        
+            return (orig_img, None), self.pose_fps  # not have pose for the bounding box
 
-    
-
-        
     # def write_temp_files(self, inputs):
     #     '''frame, im_res,showbox=True,tracking=False
-    #     writer save to temp_files 
+    #     writer save to temp_files
     #     '''
     #     _result = []
     #     for k in range(len(scores)):
@@ -272,7 +294,7 @@ class Pose2DQueue:
     #                 'kp_score':preds_scores[k],
     #                 'proposal_score': torch.mean(preds_scores[k]) + scores[k] + 1.25 * max(preds_scores[k]),
     #                 'idx':ids[k],
-    #                 'box':[boxes[k][0], boxes[k][1], boxes[k][2]-boxes[k][0],boxes[k][3]-boxes[k][1]] 
+    #                 'box':[boxes[k][0], boxes[k][1], boxes[k][2]-boxes[k][0],boxes[k][3]-boxes[k][1]]
     #             }
     #         )
 
@@ -280,8 +302,6 @@ class Pose2DQueue:
     #         'imgname': im_name,
     #         'result': _result
     #     }
-    
-    
 
     @property
     def stopped(self):
