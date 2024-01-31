@@ -59,7 +59,8 @@ POSE3D = {
 
 
 def camera_alignment(image, square_w=30):
-    h, w, ch = image.shape
+    image = image.copy()
+    h, w, _ = image.shape
     for i in range(0, w, square_w):
         image = cv2.line(image, (i, 0), (i, h), (0, 255, 0), 1)
     for y in range(0, h, square_w):
@@ -287,7 +288,7 @@ def update_config(config_file):
         return config
 
 
-def create_2D_csv(data=None):
+def create_2D_csv(data=None, is_video=True):
     first_header = (
         ["ImageID"]
         + ["ID"]
@@ -304,12 +305,22 @@ def create_2D_csv(data=None):
     array = [first_header] + [second_header]
     header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
     df = pd.DataFrame(data, columns=header)
-    convert_dict = {("ImageID", "ID"): str, ("ID", "ID"): int}
+    convert_dict = {("ID", "ID"): int}
+
     df = df.astype(convert_dict)
+    df = set_image_type(is_video)
     return df
 
 
-def create_3D_csv(data=None):
+def set_image_type(df, is_video):
+    if is_video:
+        df[("ImageID", "ID")] = df[("ImageID", "ID")].astype(int).astype(str)
+    else:
+        df[("ImageID", "ID")] = df[("ImageID", "ID")].astype(str)
+    return df
+
+
+def create_3D_csv(data=None,is_video=True):
     first_header = ["ImageID"] + list(np.repeat(np.array([list(POSE3D.keys())]), 3))
     second_header = ["ID"] + ["X", "Y", "Z"] * len(list(POSE3D.keys()))
 
@@ -318,18 +329,20 @@ def create_3D_csv(data=None):
     df = pd.DataFrame(data, columns=header)
     convert_dict = {("ImageID", "ID"): str}
     df = df.astype(convert_dict)
+    df = set_image_type(is_video)
     return df
 
 
-def create_Bbox_csv():
+def create_Bbox_csv(data=None,is_video=True):
     first_header = ["ImageID"] + ["ID"] + ["ClassID"] + ["BBox"] * 5
     second_header = ["ID"] + ["ID"] + ["X", "Y", "W", "H", "Confidence"]
 
     array = [first_header] + [second_header]
     header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
-    df = pd.DataFrame(None, columns=header)
+    df = pd.DataFrame(data, columns=header)
     convert_dict = {("ImageID", "ID"): str, ("ID", "ID"): int}
     df = df.astype(convert_dict)
+    df = set_image_type(is_video)
     return df
 
 

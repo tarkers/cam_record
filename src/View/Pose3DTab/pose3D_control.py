@@ -206,10 +206,12 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
     def prepare_ids(self, csv_path):
         """載入檔案內所有ID"""
         self.df = pd.read_csv(csv_path, header=[0, 1], index_col=0)
-        id_lists = sorted(set(list(self.df["ID"]["ID"].astype(str))))
+        str_list=self.df["ID"]["ID"].astype(str)
+        id_lists = sorted(set(list(str_list)))
         self.total_frame = int(self.df.iloc[-1]["ImageID"]["ID"] + 1)
         self.id_box.clear()
         self.id_box.addItems(id_lists)
+        
         return True
 
     def change_id(self, id):
@@ -222,29 +224,28 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
         npdata = self.person_2d_df.to_numpy()
         ## resmaple to 3d first
         data = npdata[:, 6:].reshape(-1, 26, 3)
-        data3D = self.poseModel.resmaple_datas(data)
+        data3Ds = self.poseModel.resmaple_datas(data)
 
         ## generate specific id data
-
         start_idx, end_idx = 0, -1
-        if npdata.shape[0] < self.total_frame:
-            for item in zip(npdata, data3D):
-                frame_id = int(item[0])
-                key_points = data3D
-                if frame_id - end_idx < 4:
-                    for _ in range((frame_id - end_idx)):
-                        self.person_2D_data[start_idx].append(key_points)
-                    end_idx = frame_id
-                else:
-                    if len(self.person_2D_data[start_idx]) > 0:
-                        self.person_2D_data[start_idx] = np.array(
-                            self.person_2D_data[start_idx]
-                        )
-                        self.person_2D_data[frame_id] = [key_points]
-                    end_idx = start_idx = frame_id
+        if npdata.shape[0] == self.total_frame:
+            self.person_2D_data[0] = data3Ds
+           
         else:
-            self.person_2D_data[0] = data3D
-
+            for item,data in zip(npdata, data3Ds):
+                frame_id = int(item[0])
+                key_points = data
+                # if frame_id - end_idx < 4:
+                #     for _ in range((frame_id - end_idx)):
+                #         self.person_2D_data[start_idx].append(key_points)
+                #     end_idx = frame_id
+                # else:
+                if len(self.person_2D_data[start_idx]) > 0:
+                    self.person_2D_data[start_idx] = np.array(
+                        self.person_2D_data[start_idx]
+                    )
+                    self.person_2D_data[frame_id] = [key_points]
+                end_idx = start_idx = frame_id
         self.set_loading(False)
 
     def start_analyze(self):
@@ -256,7 +257,7 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
             total_len = len(self.person_2D_data[k])
             datas = np.split(
                 self.person_2D_data[k],
-                list(range(self.CLIP_LEN, total_len, self.clip_len)),
+                list(range(self.clip_len, total_len, self.clip_len)),
             )
             for data in datas:
                 data3d = self.poseModel.predict_3D_Pose(data)
@@ -275,7 +276,8 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
         self.analyze_btn.setEnabled(False)
         self.kpts = np.zeros((self.total_frame, 17, 3))
         for k in list(person_3D_data.keys()):
-            self.kpts[k : len(person_3D_data[k]), :, :] = person_3D_data[k]
+            print(k,len(person_3D_data[k]))
+            self.kpts[k : k+len(person_3D_data[k]), :, :] = person_3D_data[k]
         self.append_log("POSE已經分析完畢")
 
         self.init_viewing()
@@ -403,13 +405,17 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
         self.canvas3D.set_datas(self.kpts)
 
     def load_2d_csv(self, base_folder):
-        if not os.path.exists(rf"{self.data_folder}\{base_folder}_2D.csv"):
-            QMessageBox.critical(
-                self,
-                "錯誤",
-                "沒有檔案!",
-                QMessageBox.Yes,
-            )
-            return False
+        path_2D_csv = rf"{self.data_folder}\{base_folder}_2DM.csv"
+        if not os.path.exists(path_2D_csv):
+            path_2D_csv = rf"{self.data_folder}\{base_folder}_2D.csv"
+            if not os.path.exists(path_2D_csv):
+                QMessageBox.critical(
+                    self,
+                    "錯誤",
+                    "沒有csv檔案!",
+                    QMessageBox.Yes,
+                )
+                return False
         else:
-            return self.prepare_ids(rf"{self.data_folder}\{base_folder}_2D.csv")
+            self.append_log(rf"載入2D Pose csv: {path_2D_csv}")
+            return self.prepare_ids(path_2D_csv)

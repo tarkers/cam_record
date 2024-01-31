@@ -66,6 +66,11 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         self.is_read_all: bool = False
         self.tracker: Union[BoTSORT, None] = None
         self.df: Union[pd.DataFrame, None] = None
+
+        ##init widget
+        self.player_control = None
+        self.adjust_control = None
+
         ##init config
         self.cfg = cfg
         self.detector_cfg = EasyDict({**cfg.Detector, **cfg.COMMON})
@@ -83,9 +88,10 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         self.timer = QTimer()
 
         self.add_control_widget()
-        self.init_model()
+        # self.init_model()
 
         ## test code
+        # self.adjust_ids(8,0)
 
     def init_value(self):
         """初始資料"""
@@ -251,9 +257,14 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         text = self.func_tab.currentWidget().objectName()
         self.now_tab = text
         if text == "analyze":
+            self.init_value()
+            ## set image as default
+            self.type_group_check(self.input_type_group.checkedButton().text())
             print("分析")
         elif text == "adjust":
+            self.init_value()
             print("調整")
+        self.player_control.setEnabled(False)
 
     def reset_control(self):
         """重設player_control為無法互動"""
@@ -281,7 +292,7 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
             frame = cv2.imread(self.media_files[0])
             self.frames.append(frame)
             self.player_control.show_image(frame)
-            self.player_control.control_slider(False)
+            self.player_control.setEnabled(False)
 
     def load_video(self):
         """載入影片"""
@@ -299,7 +310,8 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
             if ret:
                 self.player_control.show_image(frame)
                 self.frames.append(frame)
-                self.player_control.control_slider(False)
+                self.player_control.setEnabled(False)
+
             else:
                 QMessageBox.critical(
                     self,
@@ -341,8 +353,13 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
     def change_type(self):
         """改變media類型"""
         self.init_type()
-        input_type = self.input_type_group.checkedButton().text()
         self.ana_group.hide()
+        self.type_group_check(self.input_type_group.checkedButton().text())
+
+    def type_group_check(self, input_type):
+        """
+        group box check
+        """
         if input_type == "影片":
             self.video_set.show()
             self.pic_set.hide()
@@ -499,15 +516,17 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         ## create data Frame
         self.set_loading(True)
         self.save_btn.setEnabled(False)
+        self.player_control.control_slider(False)
+        self.player_control.setEnabled(True)
         if self.media_type == MEDIATYPE.Video:
             self.detector.tracking = True
-            self.tracker = BoTSORT(self.tracker_cfg, frame_rate=100.0)
+            self.tracker = BoTSORT(self.tracker_cfg, frame_rate=self.fps)
             self.detector.set_tracker(self.tracker)
         else:
             self.detector.tracking = False
             self.detector.set_tracker(None)
         self.set_loading(False)
-        self.append_log("開始偵測2D Pose", "red")
+        self.append_log("開始偵測2D Pose...", "red")
         self.pose_data = []
         self.timer = QTimer()
         self.contatin_first = True
@@ -523,7 +542,10 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         """存入原始檔案"""
         self.set_loading(True)
         self.pose_data = np.array(self.pose_data)
-        pose_df = create_2D_csv(self.pose_data)
+
+        pose_df = create_2D_csv(
+            self.pose_data, is_video=(self.media_type == MEDIATYPE.Video)
+        )
         basename = self.get_data_basename()
         ## create parent folder
         folder = os.path.join(self.ROOT_DIR, "Pose", basename)
@@ -571,7 +593,7 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
                     QMessageBox.Yes,
                 )
                 return False
-        self.append_log("Pose 2D已載入:", path_2D_csv)
+        self.append_log(rf"Pose 2D已載入: {path_2D_csv}")
         self.df = pd.read_csv(path_2D_csv, header=[0, 1], index_col=0)
         info_path = os.path.join(self.data_folder, rf"{base_folder}_videoinfo.json")
         if os.path.exists(info_path):
@@ -582,6 +604,7 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
             h, w, _ = self.frames[0].shape
             self.adjust_control.set_pixel_range((0, w), (0, h))
             self.player_control.init_value(frame_count=count)
+            self.player_control.setEnabled(True)
             self.player_control.show_image(self.frames[0])
             self.player_control.control_slider(True)
         else:
@@ -604,7 +627,7 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
             base_folder = os.path.basename(self.data_folder)
             path = rf"{self.data_folder}\{base_folder}_2DM.csv"
             self.df.to_csv(path)
-            self.append_log("POSE 2D修正已存檔:", path)
+            self.append_log(rf"POSE 2D修正已存檔: {path}")
 
     def draw_now_frame(self, frame_id: int):
         """圖片顯示skeleton\n
@@ -630,7 +653,38 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
             )
         return frame
 
+
+
     def adjust_ids(self, old_id: int, new_id: int):
         """更新物件ID"""
-        if self.df:
-            self.df.loc[self.df["ID"]["ID"] == old_id, ("ID", "ID")] = new_id
+        # # self.now_count = 2
+        # # old_id = 8
+        # # new_id = 0
+        # # self.df = pd.read_csv(rf"Pose\test\test_2D.csv", header=[0, 1], index_col=0)
+        # self.total_frame = 8
+        self.total_frame=self.df[('ImageID','ID')].max()+1
+        df = self.df.loc[(self.df[("ImageID", "ID")] >= self.now_count - 1)]
+        for img_id in range(self.now_count - 1, self.total_frame):
+            switch_df = df[
+                (df[("ImageID", "ID")] == img_id)
+                & df[("ID", "ID")].isin([old_id, new_id])
+            ]
+            if len(switch_df.index) > 2:
+                print("檔案有錯誤!!")
+                exit()
+            elif len(switch_df.index) == 2:  # id switch
+                first_id = self.df.at[switch_df.index[0], ("ID", "ID")]
+                self.df.at[switch_df.index[0], ("ID", "ID")] = self.df.at[
+                    switch_df.index[1], ("ID", "ID")
+                ]
+                self.df.at[switch_df.index[1], ("ID", "ID")] = first_id
+                # print(first_id, "ID SWITCH")
+            elif (
+                (df[("ImageID", "ID")] == img_id) & (df[("ID", "ID")] == old_id)
+            ).any():  # give new id
+                row = df[
+                    (df[("ImageID", "ID")] == img_id) & (df[("ID", "ID")] == old_id)
+                ]
+                self.df.at[row.index[0], ("ID", "ID")] = new_id
+                # print(img_id,row.index[0], "REASSIGN")
+        self.player_control.show_image(self.draw_now_frame(self.now_count-1))

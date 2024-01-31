@@ -14,7 +14,7 @@ import yaml
 from typing import Callable
 
 ## custom
-from util.utils import update_config, video_to_frame, load_3d_angles
+from util.utils import update_config, video_to_frame, camera_alignment
 from src.stream import RealsenseThread, SavingThread, VideoThread
 from util.enumType import *
 from src.Widgets import Player
@@ -97,7 +97,7 @@ class Camera_Control(QtWidgets.QWidget, Ui_Form):
     def init_value(self):
         """初始設置"""
         # camera read w,h
-        self.w, self.h = 1920, 1080
+        self.w, self.h = 1280, 800
         self.is_record = False
         self.camera_is_open = False
         self.camera_thread = None
@@ -323,17 +323,17 @@ class Camera_Control(QtWidgets.QWidget, Ui_Form):
             color, depth = data  # color[h,w,c]
         else:
             color = data[0]
-
+        if self.show_lines.isChecked():
+            show=camera_alignment(color,40)
+        else:
+            show=color.copy()
+            
         if self.is_record:
             if self.save_w_record_check.isChecked():
                 self.saving_thread.set_new_data(color)
-
             else:
                 self.frames.append(color)  # 可瀏覽錄製影片
-
-            self.player_control.show_image(color)
-        else:
-            self.player_control.show_image(color)
+        self.player_control.show_image(show)
 
     def clear_all_thread(self):
         """停止運行的thread"""

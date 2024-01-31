@@ -94,7 +94,7 @@ class ScrollAdjust(QtWidgets.QWidget, Ui_Form):
         self.init_value()
         self.init_bind()
         self.add_control_widget()
-       
+
     def init_value(self):
         """初始資料"""
         pass
@@ -133,7 +133,7 @@ class ScrollAdjust(QtWidgets.QWidget, Ui_Form):
             )
             self.group_btn.addButton(widgit.kpt_btn, idx)
             self.scrollLayout.addWidget(widgit)
-        scroll.setWidget( self.scrollContent)
+        scroll.setWidget(self.scrollContent)
         self.kpt_widget.layout().addStretch()
         self.scrollContent.setEnabled(False)
 
@@ -145,23 +145,19 @@ class ScrollAdjust(QtWidgets.QWidget, Ui_Form):
             return
         if int(old_text) == new_value:  # same that will not change
             return
-        if new_value in self.id_loc_map:
-            QMessageBox.critical(
-                self,
-                "錯誤",
-                "ID在同一幀不能重複!",
-                QMessageBox.Yes,
-            )
-            return
-        else:
-            if self.ID_changed_signal:
+
+        if self.ID_changed_signal:
+            if new_value not in self.id_loc_map:
                 now_index = self.old_id.currentIndex()
                 self.old_id.removeItem(now_index)
                 self.old_id.insertItem(now_index, str(new_value))
-
                 self.id_loc_map[new_value] = self.id_loc_map[int(old_text)]
                 del self.id_loc_map[int(old_text)]
-                self.ID_changed_signal(int(old_text), new_value)
+            else:
+                tmp = self.id_loc_map[new_value]
+                self.id_loc_map[new_value] = self.id_loc_map[int(old_text)]
+                self.id_loc_map[int(old_text)] = tmp
+            self.ID_changed_signal(int(old_text), new_value)
 
     def set_keypoints(self):
         """設置關鍵點資訊"""
@@ -230,7 +226,7 @@ class ScrollAdjust(QtWidgets.QWidget, Ui_Form):
         self.child_is_connect = True
 
     def set_pixel_range(
-        self, xrange: tuple, y_range: tuple, z_range: Union[tuple , None] = None
+        self, xrange: tuple, y_range: tuple, z_range: Union[tuple, None] = None
     ):
         """
         設置所有Qcombobox的範圍\n
