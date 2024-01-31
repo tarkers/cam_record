@@ -8,60 +8,64 @@ import yaml
 import pandas as pd
 from easydict import EasyDict as edict
 
-POSE2D={"Nose":"鼻子",
-    "LEye":"左眼",
-    "REye":"右眼",
-    "LEar":"左耳",
-    "REar":"右耳",
-    "LShoulder":"左肩",
-    "RShoulder":"右肩",
-    "LElbow":"左手肘",
-    "RElbow":"右手肘",
-    "LWrist":"左手腕",
-    "RWrist":"右手腕",
-    "LHip":"左臀",
-    "RHip":"右臀",
-    "LKnee":"左膝",
-    "Rknee":"右膝",
-    "LAnkle":"左腳踝",
-    "RAnkle":"右腳踝",
-    "Head":"頭部",
-    "Neck":"脖子",
-    "Hip":"臀部中心",
-    "LBigToe":"左大拇指",
-    "RBigToe":"右大拇指",
-    "LSmallToe":"左腳小指",
-    "RSmallToe":"右腳小指",
-    "LHeel":"左腳跟",
-    "RHeel":"右腳跟"}
+POSE2D = {
+    "Nose": "鼻子",
+    "LEye": "左眼",
+    "REye": "右眼",
+    "LEar": "左耳",
+    "REar": "右耳",
+    "LShoulder": "左肩",
+    "RShoulder": "右肩",
+    "LElbow": "左手肘",
+    "RElbow": "右手肘",
+    "LWrist": "左手腕",
+    "RWrist": "右手腕",
+    "LHip": "左臀",
+    "RHip": "右臀",
+    "LKnee": "左膝",
+    "Rknee": "右膝",
+    "LAnkle": "左腳踝",
+    "RAnkle": "右腳踝",
+    "Head": "頭部",
+    "Neck": "脖子",
+    "Hip": "臀部中心",
+    "LBigToe": "左大拇指",
+    "RBigToe": "右大拇指",
+    "LSmallToe": "左腳小指",
+    "RSmallToe": "右腳小指",
+    "LHeel": "左腳跟",
+    "RHeel": "右腳跟",
+}
 
 POSE3D = {
-    "Root":"臀部中心",
-    "RHip":"右臀",
-    "RKnee":"右膝",
-    "RFoot":"右腳踝",
-    "LHip":"左臀",
-    "LKnee":"左膝",
-    "LFoot":"左腳踝",
-    "Spine":"脊椎中心",
-    "Thorax":"胸膛頂",
-    "Neck":"頸部",
-    "Head":"頭頂",
-    "LShoulder":"左肩",
-    "LElbow":"左手肘",
-    "LWrist":"左手腕",
-    "RShoulder":"右肩",
-    "RElbow":"右手肘",
-    "RWrist":"右手腕",
+    "Root": "臀部中心",
+    "RHip": "右臀",
+    "RKnee": "右膝",
+    "RFoot": "右腳踝",
+    "LHip": "左臀",
+    "LKnee": "左膝",
+    "LFoot": "左腳踝",
+    "Spine": "脊椎中心",
+    "Thorax": "胸膛頂",
+    "Neck": "頸部",
+    "Head": "頭頂",
+    "LShoulder": "左肩",
+    "LElbow": "左手肘",
+    "LWrist": "左手腕",
+    "RShoulder": "右肩",
+    "RElbow": "右手肘",
+    "RWrist": "右手腕",
 }
+
 
 def camera_alignment(image, square_w=30):
     h, w, ch = image.shape
     for i in range(0, w, square_w):
-        image = cv2.line(image, (i, 0),  (i, h), (0, 255, 0), 1)
+        image = cv2.line(image, (i, 0), (i, h), (0, 255, 0), 1)
     for y in range(0, h, square_w):
         image = cv2.line(image, (0, y), (w, y), (0, 255, 0), 1)
     return image
+
 
 def video_to_frame(input_video_path, start_frame=0, end_frame=2000):
     """Return video_image,fps,count"""
@@ -285,15 +289,23 @@ def update_config(config_file):
 
 def create_2D_csv(data=None):
     first_header = (
-        ["ImageID"] + ["ID"] + ["BBox"] * 4 + list(np.repeat(np.array([list(POSE2D.keys())]), 3))
+        ["ImageID"]
+        + ["ID"]
+        + ["BBox"] * 4
+        + list(np.repeat(np.array([list(POSE2D.keys())]), 3))
     )
     second_header = (
-        ["ID"] + ["ID"] + ["X", "Y", "W", "H"] + ["X", "Y", "Confidence"] * len(list(POSE2D.keys()))
+        ["ID"]
+        + ["ID"]
+        + ["X", "Y", "W", "H"]
+        + ["X", "Y", "Confidence"] * len(list(POSE2D.keys()))
     )
 
     array = [first_header] + [second_header]
     header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
     df = pd.DataFrame(data, columns=header)
+    convert_dict = {("ImageID", "ID"): str, ("ID", "ID"): int}
+    df = df.astype(convert_dict)
     return df
 
 
@@ -304,6 +316,8 @@ def create_3D_csv(data=None):
     array = [first_header] + [second_header]
     header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
     df = pd.DataFrame(data, columns=header)
+    convert_dict = {("ImageID", "ID"): str}
+    df = df.astype(convert_dict)
     return df
 
 
@@ -314,6 +328,8 @@ def create_Bbox_csv():
     array = [first_header] + [second_header]
     header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
     df = pd.DataFrame(None, columns=header)
+    convert_dict = {("ImageID", "ID"): str, ("ID", "ID"): int}
+    df = df.astype(convert_dict)
     return df
 
 
