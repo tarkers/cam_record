@@ -109,7 +109,7 @@ class Canvas(QtWidgets.QWidget, Ui_Form):
         x = event.pos().x()
         y = event.pos().y()
         if event.buttons() & QtCore.Qt.LeftButton:
-            print("clicked")
+            # print("clicked")
             self.last_mouse_point = self.pixel_to_img_coordinate(x, y)
         elif event.buttons() & QtCore.Qt.RightButton:
             pass

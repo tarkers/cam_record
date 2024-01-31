@@ -88,7 +88,7 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         self.timer = QTimer()
 
         self.add_control_widget()
-        # self.init_model()
+        self.init_model()
 
         ## test code
         # self.adjust_ids(8,0)
@@ -187,6 +187,8 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
 
         now_iloc = self.adjust_control.now_iloc
         kpt_name = self.adjust_control.now_kpt_name
+        if kpt_name=="":    #means doesnt choose yet
+            return
         self.df.at[now_iloc, (kpt_name, "X")] = val[0]
         self.df.at[now_iloc, (kpt_name, "Y")] = val[1]
         self.player_control.show_image(self.draw_now_frame(self.now_count - 1))
@@ -580,6 +582,7 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         data_path = QFileDialog.getExistingDirectory(self, "", None)
         if data_path is None or data_path == "":
             return
+        self.set_loading(True)
         self.data_folder = data_path
         base_folder = os.path.basename(self.data_folder)
         path_2D_csv = rf"{self.data_folder}\{base_folder}_2DM.csv"
@@ -598,16 +601,19 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         info_path = os.path.join(self.data_folder, rf"{base_folder}_videoinfo.json")
         if os.path.exists(info_path):
             self.video_info = self.load_video_info(info_path)
-            self.frames, self.fps, count = video_to_frame(
+            self.frames, self.fps, _ = video_to_frame(
                 rf"{self.data_folder}\{self.video_info['videoName']}"
             )
             h, w, _ = self.frames[0].shape
             self.adjust_control.set_pixel_range((0, w), (0, h))
-            self.player_control.init_value(frame_count=count)
+            total_frame = self.df[("ImageID", "ID")].max() + 1
+            self.player_control.init_value(frame_count=total_frame)
             self.player_control.setEnabled(True)
             self.player_control.show_image(self.frames[0])
             self.player_control.control_slider(True)
+            self.set_loading(False)
         else:
+            self.set_loading(False)
             return
 
     def load_video_info(self, path: str):
@@ -653,18 +659,11 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
             )
         return frame
 
-
-
     def adjust_ids(self, old_id: int, new_id: int):
         """更新物件ID"""
-        # # self.now_count = 2
-        # # old_id = 8
-        # # new_id = 0
-        # # self.df = pd.read_csv(rf"Pose\test\test_2D.csv", header=[0, 1], index_col=0)
-        # self.total_frame = 8
-        self.total_frame=self.df[('ImageID','ID')].max()+1
+        total_frame = self.df[("ImageID", "ID")].max() + 1
         df = self.df.loc[(self.df[("ImageID", "ID")] >= self.now_count - 1)]
-        for img_id in range(self.now_count - 1, self.total_frame):
+        for img_id in range(self.now_count - 1, total_frame):
             switch_df = df[
                 (df[("ImageID", "ID")] == img_id)
                 & df[("ID", "ID")].isin([old_id, new_id])
@@ -687,4 +686,4 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
                 ]
                 self.df.at[row.index[0], ("ID", "ID")] = new_id
                 # print(img_id,row.index[0], "REASSIGN")
-        self.player_control.show_image(self.draw_now_frame(self.now_count-1))
+        self.player_control.show_image(self.draw_now_frame(self.now_count - 1))

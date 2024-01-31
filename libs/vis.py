@@ -569,7 +569,7 @@ def plot_single_2d_skeleton(
         if start_p in part_line and end_p in part_line:
             start_xy = part_line[start_p]
             end_xy = part_line[end_p]
-
+            
             if i < len(line_color):
                 if tracking:
                     cv2.line(
@@ -589,7 +589,7 @@ def plot_single_2d_skeleton(
                     )
                 # cv2.line(img, start_xy, end_xy, line_color[i], 2 * int(kp_scores[start_p] + kp_scores[end_p]) + 1)
             else:
-                cv2.line(img, start_xy, end_xy, (0, 0, 255), 2)
+                cv2.line(img, start_xy, end_xy, HALPHE["line_color"][i], 2 * int(kp_scores[start_p] + kp_scores[end_p]) + 1)
                 
     return img
 

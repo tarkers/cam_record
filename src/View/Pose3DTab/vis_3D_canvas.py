@@ -76,7 +76,8 @@ class Canvas3DWrapper:
             elevation=30, azimuth=0, up="+z", distance=15
         )
         self.datas=[]
-        self.plane = self.set_floor_plane()
+        # self.plane = self.set_floor_plane()
+        axis = scene.visuals.XYZAxis(parent=self.view.scene)
         self.set_lines_plot()
     def test_plot(self):
         pass
@@ -105,14 +106,20 @@ class Canvas3DWrapper:
         # rot1.rotate(45, (0, 1, 0))
         # rot1.translate([1, 1, 1])
         # plane.transform = rot1
-
+        
         return plane
 
     def resample_data_to_canvas(self, datas):
         datas[:, :, [2, 1]] = datas[:, :, [1, 2]]  # swap y,z
         datas[:, :, -1] = -(
-            datas[:, :, -1] - np.max(datas[:, :, -1])
-        )  # upside down of z and set foot point to xy plane
+            datas[:, :, -1] ) 
+        print(datas[0, 3, -1])
+        # upside down of z and set first foot point to xy plane
+        # datas[:, :, -1] = -(
+        #     datas[:, :, -1] - np.max(datas[:, :, -1])
+        # )  # upside down of z and set foot point to xy plane
+        
+        
         datas *= 5  # scale person factor
         return datas
 

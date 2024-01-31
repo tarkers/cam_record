@@ -235,17 +235,19 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
             for item,data in zip(npdata, data3Ds):
                 frame_id = int(item[0])
                 key_points = data
-                # if frame_id - end_idx < 4:
-                #     for _ in range((frame_id - end_idx)):
-                #         self.person_2D_data[start_idx].append(key_points)
-                #     end_idx = frame_id
-                # else:
-                if len(self.person_2D_data[start_idx]) > 0:
-                    self.person_2D_data[start_idx] = np.array(
-                        self.person_2D_data[start_idx]
-                    )
-                    self.person_2D_data[frame_id] = [key_points]
-                end_idx = start_idx = frame_id
+                if frame_id - end_idx < 2:
+                    for _ in range((frame_id - end_idx)):
+                        self.person_2D_data[start_idx].append(key_points)
+                    end_idx = frame_id
+                else:
+                    if len(self.person_2D_data[start_idx]) > 0:
+                        self.person_2D_data[start_idx] = np.array(
+                            self.person_2D_data[start_idx]
+                        )
+                        self.person_2D_data[frame_id] = [key_points]
+                    end_idx = start_idx = frame_id
+        
+        
         self.set_loading(False)
 
     def start_analyze(self):
@@ -253,8 +255,10 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
         self.id_box.setEnabled(False)
         person_3D_data = {}
         for k in list(self.person_2D_data.keys()):
-            person_3D_data[k] = np.array([])
             total_len = len(self.person_2D_data[k])
+            if total_len==0:
+                continue
+            person_3D_data[k] = np.array([])
             datas = np.split(
                 self.person_2D_data[k],
                 list(range(self.clip_len, total_len, self.clip_len)),
@@ -269,14 +273,15 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
                         [person_3D_data[k], data3d], axis=1
                     )
             person_3D_data[k] = person_3D_data[k].reshape(-1, 17, 3)
-
+            
+            
         self.id_box.setEnabled(True)
         self.set_loading(False)
         self.save_btn.setEnabled(True)
         self.analyze_btn.setEnabled(False)
         self.kpts = np.zeros((self.total_frame, 17, 3))
         for k in list(person_3D_data.keys()):
-            print(k,len(person_3D_data[k]))
+            # print(k,person_3D_data[k].shape)
             self.kpts[k : k+len(person_3D_data[k]), :, :] = person_3D_data[k]
         self.append_log("POSE已經分析完畢")
 

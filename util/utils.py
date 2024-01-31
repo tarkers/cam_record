@@ -29,8 +29,8 @@ POSE2D = {
     "Head": "頭部",
     "Neck": "脖子",
     "Hip": "臀部中心",
-    "LBigToe": "左大拇指",
-    "RBigToe": "右大拇指",
+    "LBigToe": "左腳大拇指",
+    "RBigToe": "右腳大拇指",
     "LSmallToe": "左腳小指",
     "RSmallToe": "右腳小指",
     "LHeel": "左腳跟",
@@ -308,7 +308,7 @@ def create_2D_csv(data=None, is_video=True):
     convert_dict = {("ID", "ID"): int}
 
     df = df.astype(convert_dict)
-    df = set_image_type(is_video)
+    df = set_image_type(df,is_video)
     return df
 
 
@@ -327,9 +327,7 @@ def create_3D_csv(data=None,is_video=True):
     array = [first_header] + [second_header]
     header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
     df = pd.DataFrame(data, columns=header)
-    convert_dict = {("ImageID", "ID"): str}
-    df = df.astype(convert_dict)
-    df = set_image_type(is_video)
+    df = set_image_type(df,is_video)
     return df
 
 
@@ -340,9 +338,9 @@ def create_Bbox_csv(data=None,is_video=True):
     array = [first_header] + [second_header]
     header = pd.MultiIndex.from_arrays(array, names=("Names", "Points"))
     df = pd.DataFrame(data, columns=header)
-    convert_dict = {("ImageID", "ID"): str, ("ID", "ID"): int}
+    convert_dict = { ("ID", "ID"): int}
     df = df.astype(convert_dict)
-    df = set_image_type(is_video)
+    df = set_image_type(df,is_video)
     return df
 
 

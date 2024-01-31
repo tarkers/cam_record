@@ -107,7 +107,7 @@ class ScrollAdjust(QtWidgets.QWidget, Ui_Form):
 
     def set_now_kpt_name(self, btn: QRadioButton):
         """設置現在選擇的關鍵點"""
-        self.now_kpt_name = btn.text()
+        self.now_kpt_name = [i for i in POSE2D if POSE2D[i]==btn.text()][0]
 
     def add_control_widget(self, pose_dict=POSE2D):
         """初始控制UI\n
@@ -169,7 +169,7 @@ class ScrollAdjust(QtWidgets.QWidget, Ui_Form):
             if self.child_is_connect:
                 self.disconnect_adjust()
             self.now_iloc = self.id_loc_map[int(text)]  # 這行在dataframe的位置
-            keypint_row = self.frame_df[self.frame_df["ID"]["ID"] == int(text)]
+            keypint_row = self.frame_df[self.frame_df[("ID","ID")] == int(text)]
             if keypint_row is not None:
                 data = keypint_row.values[0, 6:].reshape(-1, 3)
                 self.loop_update(data)
@@ -188,7 +188,7 @@ class ScrollAdjust(QtWidgets.QWidget, Ui_Form):
     def get_frame_ids(self, frame_df: pd.DataFrame):
         """取得此frame下所有的ID"""
         self.frame_df = frame_df
-        ids = self.frame_df["ID"]["ID"].values
+        ids = self.frame_df[("ID","ID")].values
         iloc_ids = list(self.frame_df.index)
         self.id_loc_map = {ids[i]: iloc_ids[i] for i in range(len(ids))}
         self.set_org_ids(ids)
