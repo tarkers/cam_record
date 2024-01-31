@@ -46,21 +46,20 @@ body_limb = [
 fast_limb = [[3, 2, 1, 0, 4, 5, 6], [16, 15, 14, 8, 11, 12, 13], [10, 9, 8, 7, 0]]
 
 
-class MyMainWindow(QtWidgets.QMainWindow):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# class MyMainWindow(QtWidgets.QMainWindow):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
 
-        central_widget = QtWidgets.QWidget()
-        main_layout = QtWidgets.QHBoxLayout()
+#         central_widget = QtWidgets.QWidget()
+#         main_layout = QtWidgets.QHBoxLayout()
 
-        # self._controls = Controls()
-        # main_layout.addWidget(self._controls)
-        self._canvas_wrapper = Canvas3DWrapper()
-        main_layout.addWidget(self._canvas_wrapper.canvas.native)
+#         # self._controls = Controls()
+#         # main_layout.addWidget(self._controls)
+#         self._canvas_wrapper = Canvas3DWrapper()
+#         main_layout.addWidget(self._canvas_wrapper.canvas.native)
 
-        central_widget.setLayout(main_layout)
-        self.setCentralWidget(central_widget)
-
+#         central_widget.setLayout(main_layout)
+#         self.setCentralWidget(central_widget)
 
 
 
@@ -178,9 +177,9 @@ def get_3D_data(file):
     return data
 
 
-if __name__ == "__main__":
-    app = use_app("pyqt5")
-    app.create()
-    win = MyMainWindow()
-    win.show()
-    app.run()
+# if __name__ == "__main__":
+#     app = use_app("pyqt5")
+#     app.create()
+#     win = MyMainWindow()
+#     win.show()
+#     app.run()

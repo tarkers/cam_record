@@ -3,7 +3,8 @@ from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5.QtGui import QPixmap, QImage, QTextCursor
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
 from PyQt5.QtWidgets import QMainWindow, QStyleFactory, QApplication, QMessageBox, qApp
-
+from vispy.scene import SceneCanvas, visuals
+from vispy.app import use_app
 import time
 from datetime import datetime
 import os
@@ -14,6 +15,7 @@ import numpy as np
 import yaml
 
 ## custom
+
 from src import Loading
 from util.enumType import *
 from src.View import Camera_Control
@@ -131,6 +133,7 @@ class Ui(QMainWindow, Ui_MainWindow):
 
 
 if __name__ == "__main__":
+    # app.create()
     app = QApplication(sys.argv)
     app.setStyle(
         QStyleFactory.create("motif")

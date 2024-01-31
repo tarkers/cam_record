@@ -3,7 +3,7 @@ COMMON:
   device: "0"
   gpus: [0]
   tracking: True
-  ROOT_DIR: C:/Users/65904/Desktop/Train_VIT/cam_record
+  ROOT_DIR: C:\Users\CHEN_KU\Desktop\github\cam_record
   
 CHART:
   DIR_VIDEO: 'Data'
