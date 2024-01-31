@@ -166,7 +166,21 @@
          <string>操作</string>
         </property>
         <layout class="QGridLayout" name="gridLayout_4">
+         <item row="0" column="0" colspan="2">
+          <widget class="QPushButton" name="camera_btn">
+           <property name="text">
+            <string>開啟攝影機</string>
+           </property>
+          </widget>
+         </item>
          <item row="1" column="0">
+          <widget class="QCheckBox" name="show_lines">
+           <property name="text">
+            <string>顯示框線</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
           <widget class="QCheckBox" name="save_w_record_check">
            <property name="toolTip">
             <string>開啟則錄影時會立即錄製到本機</string>
@@ -176,20 +190,13 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="1">
+         <item row="2" column="0" colspan="2">
           <widget class="QPushButton" name="record_btn">
            <property name="enabled">
             <bool>false</bool>
            </property>
            <property name="text">
             <string>開始錄影</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0" colspan="2">
-          <widget class="QPushButton" name="camera_btn">
-           <property name="text">
-            <string>開啟攝影機</string>
            </property>
           </widget>
          </item>
