@@ -424,3 +424,7 @@ class Pose3D_Control(QtWidgets.QWidget, Ui_Form):
         else:
             self.append_log(rf"載入2D Pose csv: {path_2D_csv}")
             return self.prepare_ids(path_2D_csv)
+
+    def clear_all(self):
+        """停止運行"""
+        pass

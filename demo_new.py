@@ -31,15 +31,13 @@ class Ui(QMainWindow, Ui_MainWindow):
         ##init config
         self.cfg = update_config(r"libs\configs\configs_new.yaml")
         self.ROOT_DIR = self.cfg.COMMON.ROOT_DIR
-        
+        self.tab = "camera_tab"
         ## create save folder
         self.create_folder("Stream")
         self.create_folder("Pose")
-        
+
         ## loading dialog ##
         self.loading = Loading(self)
-
-        
 
         self.add_control_widget()
         self.signal_bind()
@@ -51,13 +49,13 @@ class Ui(QMainWindow, Ui_MainWindow):
     def add_control_widget(self):
         """初始控制UI"""
         ## camera tab control
-        self.cam_control = Camera_Control(
+        self.cam_widget = Camera_Control(
             append_log=self.append_log,
             set_loading=self.set_loading,
             parent=self,
             cfg=self.cfg,
         )
-        self.camera_tab.layout().addWidget(self.cam_control)
+        self.camera_tab.layout().addWidget(self.cam_widget)
 
         ## 2D tab
         self.pose2d_widget = Pose2D_Control(
@@ -78,7 +76,22 @@ class Ui(QMainWindow, Ui_MainWindow):
         self.pose3d_tab.layout().addWidget(self.pose3d_widget)
 
     def change_tab(self):
-        print(self.op_tab.currentIndex())
+        # self.set_loading(True)
+
+        if self.tab == "camera_tab":
+            self.cam_widget.clear_all()
+            self.cam_widget.init_value()
+        elif self.tab == "pose2d_tab":
+            self.pose2d_widget.clear_all()
+            self.pose2d_widget.init_value()
+            pass
+        elif self.tab == "pose3d_tab":
+            self.pose3d_widget.clear_all()
+            self.pose3d_widget.init_value()
+            pass
+        self.tab = self.op_tab.currentWidget().objectName()
+
+        # self.set_loading(False)
         pass
 
     def append_log(
@@ -114,8 +127,6 @@ class Ui(QMainWindow, Ui_MainWindow):
             parents=True, exist_ok=True
         )
 
-
-
     def closeEvent(self, event):
         result = QMessageBox.question(
             self,
@@ -128,7 +139,7 @@ class Ui(QMainWindow, Ui_MainWindow):
         if result == QMessageBox.Yes:
             self.set_loading(False)
 
-            self.cam_control.clear_all_thread()
+            self.cam_widget.clear_all()
             event.accept()
 
 

@@ -118,7 +118,6 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
         self.custom_pause: bool = False
         self.now_count = 0
         self.analyze_btn.setEnabled(True)
-
         pass
 
     def init_bind(self):
@@ -687,3 +686,11 @@ class Pose2D_Control(QtWidgets.QWidget, Ui_Form):
                 self.df.at[row.index[0], ("ID", "ID")] = new_id
                 # print(img_id,row.index[0], "REASSIGN")
         self.player_control.show_image(self.draw_now_frame(self.now_count - 1))
+
+    def clear_all(self):
+        """停止運行"""
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+
+        

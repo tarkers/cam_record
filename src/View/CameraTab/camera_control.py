@@ -1,7 +1,5 @@
 from src.View.CameraTab.Ui_Camera import Ui_Form
-from PyQt5 import QtGui, QtWidgets, QtCore
-from PyQt5.QtGui import QPixmap, QImage, QTextCursor
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
+from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
 import time
@@ -9,8 +7,7 @@ from datetime import datetime
 import os
 import cv2
 
-import numpy as np
-import yaml
+
 from typing import Callable
 
 ## custom
@@ -18,7 +15,6 @@ from util.utils import update_config, video_to_frame, camera_alignment
 from src.stream import RealsenseThread, SavingThread, VideoThread
 from util.enumType import *
 from src.Widgets import Player
-
 
 
 class Camera_Control(QtWidgets.QWidget, Ui_Form):
@@ -54,7 +50,7 @@ class Camera_Control(QtWidgets.QWidget, Ui_Form):
         ##init config
         self.cfg = cfg
         self.ROOT_DIR = self.cfg.COMMON.ROOT_DIR
-        
+
         ## parent function
         self.append_log = append_log
         self.set_loading = set_loading
@@ -151,6 +147,7 @@ class Camera_Control(QtWidgets.QWidget, Ui_Form):
         """開啟或關閉cam corder"""
         self.set_loading(True)
         self.camera_is_open = not self.camera_is_open
+
         if self.camera_is_open:
             self.camera_btn.setText("關閉攝影機")
             self.append_log("攝影機啟動")
@@ -166,7 +163,6 @@ class Camera_Control(QtWidgets.QWidget, Ui_Form):
             self.start_camera_thread()
 
         else:
-            self.set_loading(True)
             self.camera_btn.setText("啟動攝影機")
             self.append_log("攝影機關閉")
             self.camera_btn.setEnabled(False)
@@ -324,10 +320,10 @@ class Camera_Control(QtWidgets.QWidget, Ui_Form):
         else:
             color = data[0]
         if self.show_lines.isChecked():
-            show=camera_alignment(color,40)
+            show = camera_alignment(color, 40)
         else:
-            show=color.copy()
-            
+            show = color.copy()
+
         if self.is_record:
             if self.save_w_record_check.isChecked():
                 self.saving_thread.set_new_data(color)
@@ -335,7 +331,13 @@ class Camera_Control(QtWidgets.QWidget, Ui_Form):
                 self.frames.append(color)  # 可瀏覽錄製影片
         self.player_control.show_image(show)
 
-    def clear_all_thread(self):
+    def clear_all(self):
         """停止運行的thread"""
-        if self.camera_thread:
-            self.camera_thread.quit()
+        if self.camera_is_open:
+            self.camera_btn.click()
+
+        if self.is_record:
+            self.record_btn.click()
+
+        if self.is_viewing_record:
+            self.record_view_btn.click()
